@@ -5,7 +5,7 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import { type User, onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth"
 import { auth, db } from "./firebase"
-import { doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { doc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { ref, onDisconnect as rtdbOnDisconnect, set, serverTimestamp as rtdbServerTimestamp } from "firebase/database"
 import { database } from "./firebase"
 
@@ -46,13 +46,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           lastSeen: rtdbServerTimestamp(),
         })
 
-        await setDoc(
+        await updateDoc(
           userDocRef,
           {
             status: "online",
             lastSeen: serverTimestamp(),
-          },
-          { merge: true },
+          }
         )
 
         // Set offline status on disconnect
@@ -76,13 +75,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         lastSeen: rtdbServerTimestamp(),
       })
 
-      await setDoc(
+      await updateDoc(
         userDocRef,
         {
           status: "offline",
           lastSeen: serverTimestamp(),
-        },
-        { merge: true },
+        }
       )
     }
 

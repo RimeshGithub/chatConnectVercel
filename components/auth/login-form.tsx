@@ -136,7 +136,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
         <Button
           type="button"
           variant="outline"
-          className="w-full bg-transparent"
+          className="w-full bg-transparent hover:bg-gray-200 text-gray-800 hover:text-gray-900"
           onClick={handleGoogleSignIn}
           disabled={loading || googleLoading}
         >

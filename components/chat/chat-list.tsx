@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { collection, query, where, onSnapshot, orderBy, limit, getDocs } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { db, database } from "@/lib/firebase"
+import { ref, onValue } from "firebase/database"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -14,18 +15,45 @@ interface Chat {
   friendId: string
   friendName: string
   lastMessage: string
-  lastMessageTime: string
+  lastMessageTime: string | null
   unreadCount: number
   lastMessageSenderId?: string
+  friendPhotoURL?: string
 }
 
 export function ChatList() {
   const [chats, setChats] = useState<Chat[]>([])
+  const [friendStatusInfo, setFriendStatusInfo] = useState<Record<string, string> | null>(null)
   const { user } = useAuth()
   const router = useRouter()
 
+  const [now, setNow] = useState(Date.now()) // keeps track of current time
+
+  useEffect(() => {
+    // Update every second
+    const interval = setInterval(() => {
+      setNow(Date.now()) // triggers re-render
+    }, 1000)
+
+    return () => clearInterval(interval) // cleanup on unmount
+  }, [])
+
   useEffect(() => {
     if (!user) return
+
+    const loadFriendStatusInfo = async (friendId: string) => {
+      const friendStatus = ref(database, `status/${friendId}`)
+      onValue(friendStatus, (snapshot) => {
+        const data = snapshot.val()
+        if (data) {
+          setFriendStatusInfo(prev => {
+            const newState = { ...prev, [friendId]: data.status }
+            console.log("Updated:", newState)
+            return newState
+          })
+        }
+      })
+    }
 
     const loadChats = async () => {
       // Get all friends
@@ -43,6 +71,8 @@ export function ChatList() {
         const messagesRef = collection(db, "chats", chatId, "messages")
         const messagesQuery = query(messagesRef, orderBy("timestamp", "desc"), limit(1))
 
+        loadFriendStatusInfo(friend.friendId)
+
         const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
           if (!snapshot.empty) {
             const lastMessage = snapshot.docs[0].data()
@@ -59,6 +89,7 @@ export function ChatList() {
               const chatData = {
                 friendId: friend.friendId,
                 friendName: friend.friendName,
+                friendPhotoURL: friend.photoURL || null,
                 lastMessage: lastMessage.text,
                 lastMessageTime: lastMessage.timestamp,
                 unreadCount,
@@ -83,8 +114,9 @@ export function ChatList() {
               chatsData.push({
                 friendId: friend.friendId,
                 friendName: friend.friendName,
+                friendPhotoURL: friend.photoURL || null,
                 lastMessage: "No messages yet",
-                lastMessageTime: new Date().toISOString(),
+                lastMessageTime: null,
                 unreadCount: 0,
               })
               setChats([...chatsData])
@@ -125,16 +157,23 @@ export function ChatList() {
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12">
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      {chat.friendName?.charAt(0).toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar className="h-12 w-12">
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {chat.friendPhotoURL ? <img src={chat.friendPhotoURL} alt="Profile" /> : chat.friendName?.charAt(0).toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div
+                      className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card ${
+                        friendStatusInfo?.friendId === "online" ? "bg-green-500" : "bg-gray-400"
+                      }`}
+                    />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <p className="font-semibold text-foreground">{chat.friendName}</p>
                       <span className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(chat.lastMessageTime), { addSuffix: true })}
+                        {chat.lastMessageTime && formatDistanceToNow(new Date(chat.lastMessageTime), { addSuffix: true })}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">

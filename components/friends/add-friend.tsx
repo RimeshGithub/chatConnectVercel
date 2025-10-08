@@ -77,9 +77,11 @@ export function AddFriend() {
         const allUsers = allUsersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
         
         const filteredUsers = allUsers.filter(u => 
-          u.email?.toLowerCase().includes(searchTerm) ||
-          u.displayName?.toLowerCase().includes(searchTerm) ||
-          u.username?.toLowerCase().includes(searchTerm)
+          u.uid !== user?.uid && (
+            u.email?.toLowerCase().includes(searchTerm) ||
+            u.displayName?.toLowerCase().includes(searchTerm) ||
+            u.username?.toLowerCase().includes(searchTerm)
+          ) 
         )
 
         if (filteredUsers.length === 0) {
@@ -257,7 +259,7 @@ export function AddFriend() {
                   <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12">
                       <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-                        {result.displayName?.charAt(0).toUpperCase() || 
+                        {result.photoURL ? <img src={result.photoURL} alt="Profile" /> : result.displayName?.charAt(0).toUpperCase() || 
                          result.username?.charAt(0).toUpperCase() || 
                          result.email?.charAt(0).toUpperCase() || 
                          "U"}

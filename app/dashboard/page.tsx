@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { Loader2, Users, MessageSquare, UserPlus, UsersRound } from "lucide-react"
+import { Loader2, Users, MessageSquare, UserPlus, UsersRound, Edit, LogOut } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { FriendsList } from "@/components/friends/friends-list"
@@ -237,9 +237,11 @@ export default function DashboardPage() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setShowUpdateProfile(true)}>Change name</DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-                Log out
+              <DropdownMenuItem onClick={() => setShowUpdateProfile(true)} className="group">
+                <Edit className="mr-0.5 h-4 w-4 group-hover:text-white" /> Change name
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSignOut} className="group">
+                <LogOut className="mr-0.5 h-4 w-4 group-hover:text-white" /> Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -248,7 +250,7 @@ export default function DashboardPage() {
         {/* Main Content */}
         <div className="bg-card/95 backdrop-blur-sm rounded-xl shadow-xl border border-border/50 overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="w-full justify-start rounded-xl bg-gray-100/50 backdrop-blur-sm p-0  max-md:p-1 max-md:flex max-md:flex-wrap max-md:gap-1 max-md:mb-4.5">
+            <TabsList className="w-full justify-start rounded-xl bg-gray-100/50 backdrop-blur-sm p-0  max-md:p-1 max-md:grid max-md:grid-cols-2 max-md:gap-1 max-md:mb-14.5">
               <TabsTrigger
                 value="chats"
                 className="relative rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-300 

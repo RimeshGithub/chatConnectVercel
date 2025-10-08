@@ -16,7 +16,8 @@ import {
   arrayUnion,
   setDoc,
 } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { ref, onValue } from "firebase/database"
+import { db, database } from "@/lib/firebase"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -46,9 +47,11 @@ interface Message {
 }
 
 interface FriendInfo {
+  id: string
   displayName: string
   email: string
   status?: string
+  photoURL?: string
 }
 
 export default function ChatPage() {
@@ -84,6 +87,17 @@ export default function ChatPage() {
       if (userDoc.exists()) {
         setFriendInfo(userDoc.data() as FriendInfo)
       }
+      const friendStatus = ref(database, `status/${friendId}`)
+      onValue(friendStatus, (snapshot) => {
+        const data = snapshot.val()
+        if (data) {
+          setFriendInfo((prev) => ({
+            ...prev,
+            status: data.status,
+            lastSeen: data.lastSeen,
+          }))
+        }
+      })
     }
 
     loadFriendInfo()
@@ -293,7 +307,7 @@ export default function ChatPage() {
           <div className="relative">
             <Avatar className="h-10 w-10">
               <AvatarFallback className="bg-primary text-primary-foreground">
-                {friendInfo?.displayName?.charAt(0).toUpperCase() || "U"}
+                {friendInfo?.photoURL ? <img src={friendInfo?.photoURL} alt="Profile" /> : friendInfo?.displayName?.charAt(0).toUpperCase() || "U"}
               </AvatarFallback>
             </Avatar>
             <div

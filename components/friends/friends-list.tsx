@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { collection, query, where, onSnapshot, doc, getDoc, deleteDoc, getDocs } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { db, database } from "@/lib/firebase"
+import { ref, onValue } from "firebase/database"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -31,6 +32,7 @@ interface Friend {
 
 export function FriendsList() {
   const [friends, setFriends] = useState<Friend[]>([])
+  const [friendStatus, setFriendStatus] = useState<{ friendId: string } | null>(null)
   const { user } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
@@ -39,6 +41,19 @@ export function FriendsList() {
 
   useEffect(() => {
     if (!user) return
+
+    const loadFriendStatusInfo = async (friendId: string) => {
+      const friendStatus = ref(database, `status/${friendId}`)
+      onValue(friendStatus, (snapshot) => {
+        const data = snapshot.val()
+        if (data) {
+          setFriendStatus((prev) => ({
+            ...prev,
+            friendId: data.status,
+          }))
+        }
+      })
+    }
 
     const friendsRef = collection(db, "friends")
     const q = query(friendsRef, where("userId", "==", user.uid))
@@ -49,6 +64,8 @@ export function FriendsList() {
           const data = friendDoc.data()
           const friendUserDoc = await getDoc(doc(db, "users", data.friendId))
           const friendUserData = friendUserDoc.data()
+
+          loadFriendStatusInfo(data.friendId)
 
           return {
             id: friendDoc.id,
@@ -109,7 +126,7 @@ export function FriendsList() {
       <div className="flex items-center gap-2">
         <Users className="h-5 w-5 text-muted-foreground" />
         <h3 className="text-lg font-semibold text-foreground">Your Friends</h3>
-        <span className="text-sm text-muted-foreground">({friends.length})</span>
+        <span className="text-lg font-semibold text-foreground">({friends.length})</span>
       </div>
 
       {friends.length === 0 ? (
@@ -134,15 +151,15 @@ export function FriendsList() {
                       </Avatar>
                       <div
                         className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card ${
-                          friend.status === "online" ? "bg-green-500" : "bg-gray-400"
+                          friendStatus?.friendId === "online" ? "bg-green-500" : "bg-gray-400"
                         }`}
                       />
                     </div>
                     <div>
                       <p className="font-medium text-foreground">{friend.friendName}</p>
                       <p className="text-xs text-muted-foreground">{friend.friendEmail}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {friend.status === "online" ? "Online" : "Offline"}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {friendStatus?.friendId === "online" ? "Online" : "Offline"}
                       </p>
                     </div>
                   </div>
@@ -162,9 +179,9 @@ export function FriendsList() {
                             setFriendToDelete(friend)
                             setDeleteDialogOpen(true)
                           }}
-                          className="text-destructive"
+                          className="text-destructive group"
                         >
-                          <UserMinus className="h-4 w-4 mr-2" />
+                          <UserMinus className="h-4 w-4 mr-0.5 text-red-500 group-hover:text-white" />
                           Remove Friend
                         </DropdownMenuItem>
                       </DropdownMenuContent>
