@@ -1,0 +1,170 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { collection, query, where, onSnapshot, orderBy, limit } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import { useAuth } from "@/lib/auth-context"
+import { Card, CardContent } from "@/components/ui/card"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Users } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { formatDistanceToNow } from "date-fns"
+
+interface Group {
+  id: string
+  name: string
+  description: string
+  memberCount: number
+  lastMessage?: string
+  lastMessageTime?: string
+  lastMessageSender?: string
+  unreadCount: number
+}
+
+export function GroupsList() {
+  const [groups, setGroups] = useState<Group[]>([])
+  const { user } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!user) return
+
+    const userGroupsRef = collection(db, "userGroups")
+    const q = query(userGroupsRef, where("userId", "==", user.uid))
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const groupsData: Group[] = []
+
+      for (const userGroupDoc of snapshot.docs) {
+        const userGroup = userGroupDoc.data()
+        const groupId = userGroup.groupId
+
+        const messagesRef = collection(db, "groups", groupId, "messages")
+        const lastMessageQuery = query(messagesRef, orderBy("timestamp", "desc"), limit(1))
+
+        onSnapshot(lastMessageQuery, (messagesSnapshot) => {
+          if (!messagesSnapshot.empty) {
+            const lastMessage = messagesSnapshot.docs[0].data()
+
+            const allMessagesQuery = query(messagesRef, orderBy("timestamp", "desc"))
+            onSnapshot(allMessagesQuery, (allSnapshot) => {
+              const unreadCount = allSnapshot.docs.filter((doc) => {
+                const msg = doc.data()
+                return msg.senderId !== user.uid && !msg.seenBy?.includes(user.uid)
+              }).length
+
+              const existingGroupIndex = groupsData.findIndex((g) => g.id === groupId)
+
+              const groupData = {
+                id: groupId,
+                name: userGroup.groupName || "Group",
+                description: userGroup.groupDescription || "",
+                memberCount: userGroup.memberCount || 0,
+                lastMessage: lastMessage.text,
+                lastMessageTime: lastMessage.timestamp,
+                lastMessageSender: lastMessage.senderName,
+                unreadCount,
+              }
+
+              if (existingGroupIndex >= 0) {
+                groupsData[existingGroupIndex] = groupData
+              } else {
+                groupsData.push(groupData)
+              }
+
+              setGroups(
+                [...groupsData].sort(
+                  (a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime(),
+                ),
+              )
+            })
+          } else {
+            if (!groupsData.find((g) => g.id === groupId)) {
+              groupsData.push({
+                id: groupId,
+                name: userGroup.groupName || "Group",
+                description: userGroup.groupDescription || "",
+                memberCount: userGroup.memberCount || 0,
+                unreadCount: 0,
+              })
+              setGroups([...groupsData])
+            }
+          }
+        })
+      }
+    })
+
+    return () => unsubscribe()
+  }, [user])
+
+  const handleGroupClick = (groupId: string) => {
+    router.push(`/group/${groupId}`)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Users className="h-5 w-5 text-muted-foreground" />
+        <h3 className="text-lg font-semibold text-foreground">My Groups</h3>
+      </div>
+
+      {groups.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+            <p className="text-muted-foreground">No groups yet. Create one to get started!</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {groups.map((group) => (
+            <Card
+              key={group.id}
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => handleGroupClick(group.id)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      <Users className="h-6 w-6" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-semibold text-foreground">{group.name}</p>
+                      {group.lastMessageTime && (
+                        <span className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(group.lastMessageTime), { addSuffix: true })}
+                        </span>
+                      )}
+                    </div>
+                    {group.lastMessage ? (
+                      <div className="flex items-center justify-between gap-2">
+                        <p
+                          className={`text-sm truncate ${group.unreadCount > 0 ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+                        >
+                          <span className="font-medium">{group.lastMessageSender}: </span>
+                          {group.lastMessage}
+                        </p>
+                        {group.unreadCount > 0 && (
+                          <span className="flex-shrink-0 bg-primary text-primary-foreground text-xs font-semibold rounded-full h-5 min-w-5 px-1.5 flex items-center justify-center">
+                            {group.unreadCount}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground truncate">
+                        {group.description || `${group.memberCount} members`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
