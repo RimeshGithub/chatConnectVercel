@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import { collection, query, where, getDocs, addDoc } from "firebase/firestore"
+import { collection, query, where, getDocs, addDoc, orderBy, limit } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -15,62 +15,150 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 export function AddFriend() {
-  const [email, setEmail] = useState("")
+  const [searchData, setSearchData] = useState("")
   const [loading, setLoading] = useState(false)
-  const [searchResult, setSearchResult] = useState<any>(null)
+  const [searchResults, setSearchResults] = useState<any[]>([])
   const { user } = useAuth()
   const { toast } = useToast()
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim()) return
+    if (!searchData.trim()) return
 
     setLoading(true)
-    setSearchResult(null)
+    setSearchResults([])
 
     try {
       const usersRef = collection(db, "users")
-      const q = query(usersRef, where("email", "==", email.trim()))
-      const querySnapshot = await getDocs(q)
+      const searchTerm = searchData.trim().toLowerCase()
 
-      if (querySnapshot.empty) {
-        toast({
-          title: "User not found",
-          description: "No user found with this email address.",
-          variant: "destructive",
-        })
-      } else {
-        const userData = querySnapshot.docs[0].data()
-        if (userData.uid === user?.uid) {
+      // 🔍 Query 1: Exact email match (original behavior)
+      const emailQuery = query(usersRef, where("email", "==", searchTerm))
+
+      // 🔍 Query 2: Partial name matching using multiple approaches
+      let nameQueries = []
+
+      // Since Firestore doesn't support native partial text search, we'll use multiple strategies:
+      
+      // Strategy 1: Search by displayName (exact match, case-insensitive)
+      // We store lowercase version for better search, or use the original
+      const exactNameQuery = query(
+        usersRef, 
+        where("displayNameLower", ">=", searchTerm),
+        where("displayNameLower", "<=", searchTerm + '\uf8ff'),
+        limit(10)
+      )
+
+      // Strategy 2: If you have a lowercase field for search
+      // If not, we'll rely on the exactNameQuery above
+      const partialNameQuery = query(
+        usersRef,
+        where("searchKeywords", "array-contains", searchTerm),
+        limit(10)
+      )
+
+      // Execute all queries
+      const [emailSnapshot, exactNameSnapshot, partialNameSnapshot] = await Promise.all([
+        getDocs(emailQuery),
+        getDocs(exactNameQuery).catch(() => ({ docs: [] })), // Fallback if field doesn't exist
+        getDocs(partialNameQuery).catch(() => ({ docs: [] })), // Fallback if field doesn't exist
+      ])
+
+      // 🟰 Combine all query results
+      const allDocs = [
+        ...emailSnapshot.docs,
+        ...exactNameSnapshot.docs,
+        ...partialNameSnapshot.docs,
+      ]
+
+      if (allDocs.length === 0) {
+        // 🔍 Fallback: Client-side filtering if Firestore queries don't work
+        const allUsersSnapshot = await getDocs(query(usersRef, limit(50)))
+        const allUsers = allUsersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        
+        const filteredUsers = allUsers.filter(u => 
+          u.email?.toLowerCase().includes(searchTerm) ||
+          u.displayName?.toLowerCase().includes(searchTerm) ||
+          u.username?.toLowerCase().includes(searchTerm)
+        )
+
+        if (filteredUsers.length === 0) {
           toast({
-            title: "Invalid action",
-            description: "You cannot send a friend request to yourself.",
+            title: "No users found",
+            description: "No users found matching your search criteria.",
             variant: "destructive",
           })
         } else {
-          setSearchResult({ id: querySnapshot.docs[0].id, ...userData })
+          setSearchResults(filteredUsers)
+        }
+      } else {
+        // 🟰 Remove duplicates and filter out current user
+        const uniqueUsers = allDocs.reduce((acc: any[], doc) => {
+          const userData = { id: doc.id, ...doc.data() }
+          if (!acc.find((u) => u.uid === userData.uid) && userData.uid !== user?.uid) {
+            acc.push(userData)
+          }
+          return acc
+        }, [])
+
+        if (uniqueUsers.length === 0) {
+          toast({
+            title: "No users found",
+            description: "No other users found matching your search criteria.",
+            variant: "destructive",
+          })
+        } else {
+          setSearchResults(uniqueUsers)
         }
       }
     } catch (error: any) {
-      toast({
-        title: "Search failed",
-        description: error.message || "Please try again.",
-        variant: "destructive",
-      })
+      console.error("Search error:", error)
+      
+      // Fallback to client-side search if Firestore queries fail
+      try {
+        const usersRef = collection(db, "users")
+        const allUsersSnapshot = await getDocs(query(usersRef, limit(100)))
+        const allUsers = allUsersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        
+        const searchTerm = searchData.trim().toLowerCase()
+        const filteredUsers = allUsers.filter(u => 
+          u.uid !== user?.uid && (
+            u.email?.toLowerCase().includes(searchTerm) ||
+            u.displayName?.toLowerCase().includes(searchTerm) ||
+            u.username?.toLowerCase().includes(searchTerm)
+          )
+        )
+
+        if (filteredUsers.length === 0) {
+          toast({
+            title: "No users found",
+            description: "No users found matching your search criteria.",
+            variant: "destructive",
+          })
+        } else {
+          setSearchResults(filteredUsers)
+        }
+      } catch (fallbackError) {
+        toast({
+          title: "Search failed",
+          description: "Please try again with a different search term.",
+          variant: "destructive",
+        })
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSendRequest = async () => {
-    if (!searchResult || !user) return
+  const handleSendRequest = async (targetUser: any) => {
+    if (!targetUser || !user) return
 
     setLoading(true)
 
     try {
       // Check if request already exists
       const requestsRef = collection(db, "friendRequests")
-      const q = query(requestsRef, where("fromUserId", "==", user.uid), where("toUserId", "==", searchResult.uid))
+      const q = query(requestsRef, where("fromUserId", "==", user.uid), where("toUserId", "==", targetUser.uid))
       const existingRequests = await getDocs(q)
 
       if (!existingRequests.empty) {
@@ -83,7 +171,7 @@ export function AddFriend() {
 
       // Check if they're already friends
       const friendsRef = collection(db, "friends")
-      const friendQuery = query(friendsRef, where("userId", "==", user.uid), where("friendId", "==", searchResult.uid))
+      const friendQuery = query(friendsRef, where("userId", "==", user.uid), where("friendId", "==", targetUser.uid))
       const existingFriends = await getDocs(friendQuery)
 
       if (!existingFriends.empty) {
@@ -99,20 +187,21 @@ export function AddFriend() {
         fromUserId: user.uid,
         fromUserName: user.displayName,
         fromUserEmail: user.email,
-        toUserId: searchResult.uid,
-        toUserName: searchResult.displayName,
-        toUserEmail: searchResult.email,
+        toUserId: targetUser.uid,
+        toUserName: targetUser.displayName,
+        toUserEmail: targetUser.email,
         status: "pending",
         createdAt: new Date().toISOString(),
+        photoURL: user.photoURL || null,
       })
 
       toast({
         title: "Request sent!",
-        description: `Friend request sent to ${searchResult.displayName}.`,
+        description: `Friend request sent to ${targetUser.displayName}.`,
       })
 
-      setSearchResult(null)
-      setEmail("")
+      // Remove the user from search results after sending request
+      setSearchResults(prev => prev.filter(u => u.uid !== targetUser.uid))
     } catch (error: any) {
       toast({
         title: "Failed to send request",
@@ -129,24 +218,22 @@ export function AddFriend() {
       <div>
         <h2 className="text-2xl font-bold text-foreground mb-2">Add a Friend</h2>
         <p className="text-muted-foreground">
-          Search for friends by their email address and send them a friend request.
+          Search for friends by their name or email address
         </p>
       </div>
 
       <form onSubmit={handleSearch} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email">Email Address</Label>
           <div className="flex gap-2">
             <Input
-              id="email"
-              type="email"
-              placeholder="friend@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchData}
+              onChange={(e) => setSearchData(e.target.value)}
               disabled={loading}
               className="flex-1"
             />
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || !searchData.trim()}>
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -160,34 +247,51 @@ export function AddFriend() {
         </div>
       </form>
 
-      {searchResult && (
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-12 w-12">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-                    {searchResult.displayName?.charAt(0).toUpperCase() || "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-semibold text-foreground">{searchResult.displayName}</p>
-                  <p className="text-sm text-muted-foreground">{searchResult.email}</p>
+      {searchResults.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="font-semibold text-lg">Search Results ({searchResults.length})</h3>
+          {searchResults.map((result) => (
+            <Card key={result.uid} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-12 w-12">
+                      <AvatarFallback className="bg-primary text-primary-foreground text-lg">
+                        {result.displayName?.charAt(0).toUpperCase() || 
+                         result.username?.charAt(0).toUpperCase() || 
+                         result.email?.charAt(0).toUpperCase() || 
+                         "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-semibold text-foreground">
+                        {result.displayName || result.username || "Unknown User"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{result.email}</p>
+                      {result.username && (
+                        <p className="text-xs text-muted-foreground">@{result.username}</p>
+                      )}
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => handleSendRequest(result)} 
+                    disabled={loading}
+                    size="sm"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Add Friend
+                      </>
+                    )}
+                  </Button>
                 </div>
-              </div>
-              <Button onClick={handleSendRequest} disabled={loading}>
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Send Request
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   )

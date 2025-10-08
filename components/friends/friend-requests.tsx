@@ -66,7 +66,7 @@ export function FriendRequests() {
         friendName: user.displayName,
         friendEmail: user.email,
         createdAt: new Date().toISOString(),
-        photoURL: request.photoURL || null,
+        photoURL: user.photoURL || null,
       })
 
       // Delete the friend request
