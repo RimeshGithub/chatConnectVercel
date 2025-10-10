@@ -22,7 +22,7 @@ import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ArrowLeft, Send, Loader2, Check, CheckCheck, Smile, MoreVertical, Pencil, Trash2 } from "lucide-react"
+import { ArrowLeft, Send, Loader2, Check, CheckCheck, Smile, MoreVertical, Pencil, Trash2, Copy, User } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -77,7 +77,7 @@ export default function ChatPage() {
 
   const chatId = user && friendId ? [user.uid, friendId].sort().join("_") : null
 
-  const reactionEmojis = ["👍", "❤️", "😂", "😮", "😢", "🙏"]
+  const reactionEmojis = ["👍", "❤️", "😂", "😮", "😢", "😠", "🤬", "🖕", "🙏"]
 
   useEffect(() => {
     if (!friendId) return
@@ -263,6 +263,21 @@ export default function ChatPage() {
     }
   }
 
+  const copyMessage = async (message: Message) => {
+    try {
+      await navigator.clipboard.writeText(message.text)
+      toast({
+        title: "Message copied to clipboard",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Failed to copy message",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleDeleteMessage = async () => {
     if (!chatId || !messageToDelete) return
 
@@ -299,7 +314,7 @@ export default function ChatPage() {
   return (
     <div className="min-h-screen gradient-bg flex flex-col">
       {/* Header */}
-      <div className="bg-card/95 backdrop-blur-sm border-b border-border/50 p-4">
+      <div className="bg-card/95 backdrop-blur-sm border-b border-border/50 p-4 fixed top-0 w-full z-1 h-18">
         <div className="max-w-4xl mx-auto flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
@@ -307,7 +322,7 @@ export default function ChatPage() {
           <div className="relative">
             <Avatar className="h-10 w-10">
               <AvatarFallback className="bg-primary text-primary-foreground">
-                {friendInfo?.photoURL ? <img src={friendInfo?.photoURL} alt="Profile" /> : friendInfo?.displayName?.charAt(0).toUpperCase() || "U"}
+                {friendInfo?.photoURL ? <img src={friendInfo?.photoURL} alt="Profile" /> : friendInfo?.displayName?.charAt(0).toUpperCase() || <User />}
               </AvatarFallback>
             </Avatar>
             <div
@@ -326,7 +341,7 @@ export default function ChatPage() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 my-18">
         <div className="max-w-4xl mx-auto space-y-4">
           {messages.length === 0 ? (
             <div className="text-center py-12">
@@ -367,7 +382,7 @@ export default function ChatPage() {
                             Cancel
                           </Button>
                           <Button size="sm" onClick={() => handleEditMessage(message.id)}>
-                            Save
+                            <Check className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
@@ -386,7 +401,7 @@ export default function ChatPage() {
                           )}
                         </div>
 
-                        {isOwn && !message.deleted && (
+                        {!message.deleted && (
                           <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -395,27 +410,35 @@ export default function ChatPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => startEdit(message)}>
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Edit
+                                {isOwn && (
+                                  <DropdownMenuItem onClick={() => startEdit(message)} className="group">
+                                    <Pencil className="h-4 w-4 mr-0.5 group-hover:text-white" />
+                                    Edit
+                                  </DropdownMenuItem>                                
+                                )}
+                                <DropdownMenuItem onClick={() => copyMessage(message)} className="group">
+                                  <Copy className="h-4 w-4 mr-0.5 group-hover:text-white" />
+                                  Copy
                                 </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setMessageToDelete(message.id)
-                                    setDeleteDialogOpen(true)
-                                  }}
-                                  className="text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
+                                {isOwn && (
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setMessageToDelete(message.id)
+                                      setDeleteDialogOpen(true)
+                                    }}
+                                    className="group text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-0.5 text-red-500 group-hover:text-white" />
+                                    Delete
+                                  </DropdownMenuItem>    
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
                         )}
 
                         {!message.deleted && (
-                          <div className="absolute -bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="absolute -bottom-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <DropdownMenu
                               open={showReactionPicker === message.id}
                               onOpenChange={(open) => setShowReactionPicker(open ? message.id : null)}
@@ -443,34 +466,34 @@ export default function ChatPage() {
                             </DropdownMenu>
                           </div>
                         )}
-
-                        {message.reactions && Object.keys(message.reactions).length > 0 && (
-                          <div className="flex gap-1 mt-1 flex-wrap">
-                            {Object.entries(reactionCounts).map(([emoji, count]) => (
-                              <button
-                                key={emoji}
-                                onClick={() => handleReaction(message.id, emoji)}
-                                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-                                  message.reactions?.[user.uid] === emoji
-                                    ? "bg-primary/20 border-primary"
-                                    : "bg-card border-border hover:bg-accent"
-                                }`}
-                              >
-                                {emoji} {count}
-                              </button>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     )}
 
-                    <div className="flex items-center gap-1 px-2">
+                    {message.reactions && Object.keys(message.reactions).length > 0 && (
+                      <div className="flex gap-1 mt-0 flex-wrap">
+                        {Object.entries(reactionCounts).map(([emoji, count]) => (
+                          <button
+                            key={emoji}
+                            onClick={() => handleReaction(message.id, emoji)}
+                            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                              message.reactions?.[user.uid] === emoji
+                                ? "bg-primary/20 border-primary"
+                                : "bg-card border-border hover:bg-accent"
+                            }`}
+                          >
+                            {emoji} {count}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-1 px-0.5">
                       <span className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
                       </span>
                       {isOwn && (
                         <span className="text-muted-foreground">
-                          {isSeen ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                          {isSeen ? <CheckCheck className="h-3 w-3 text-blue-600" /> : <Check className="h-3 w-3" />}
                         </span>
                       )}
                     </div>
@@ -484,7 +507,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input */}
-      <div className="bg-card/95 backdrop-blur-sm border-t border-border/50 p-4">
+      <div className="bg-card/95 backdrop-blur-sm border-t border-border/50 p-4 fixed bottom-0 w-full z-1 h-18">
         <div className="max-w-4xl mx-auto">
           <form onSubmit={handleSendMessage} className="flex gap-2">
             <Input
@@ -496,6 +519,7 @@ export default function ChatPage() {
               placeholder="Type a message..."
               disabled={loading}
               className="flex-1"
+              autoComplete="nope"
             />
             <Button type="submit" disabled={loading || !newMessage.trim()}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

@@ -14,8 +14,10 @@ import {
   getDocs,
   addDoc,
   deleteDoc,
+  onSnapshot,
 } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { db, database } from "@/lib/firebase"
+import { ref, onValue, off } from "firebase/database"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Loader2, UserPlus, Shield, Trash2, Crown, LogOut } from "lucide-react"
+import { ArrowLeft, Loader2, UserPlus, Shield, Trash2, Crown, LogOut, User } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -35,6 +37,8 @@ import {
 } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
+import { is } from "date-fns/locale"
 
 interface GroupInfo {
   name: string
@@ -49,11 +53,14 @@ interface MemberInfo {
   displayName: string
   email: string
   isAdmin: boolean
+  photoURL?: string
+  status?: string
 }
 
 interface Friend {
   friendId: string
   friendName: string
+  photoURL?: string
 }
 
 export default function GroupSettingsPage() {
@@ -82,62 +89,125 @@ export default function GroupSettingsPage() {
   useEffect(() => {
     if (!groupId || !user) return
 
-    const loadGroupData = async () => {
-      const groupDoc = await getDoc(doc(db, "groups", groupId))
-      if (groupDoc.exists()) {
-        const data = groupDoc.data() as GroupInfo
-        setGroupInfo(data)
-        setGroupName(data.name)
-        setDescription(data.description)
+    const statusUnsubscribers: (() => void)[] = []
 
-        console.log("[v0] Loading members for group:", groupId)
-        console.log("[v0] Group members array:", data.members)
-
-        // Load member information
-        const memberInfoData: MemberInfo[] = []
-        for (const memberId of data.members) {
-          console.log("[v0] Loading user document for:", memberId)
-          const userDoc = await getDoc(doc(db, "users", memberId))
-          if (userDoc.exists()) {
-            const userData = userDoc.data()
-            console.log("[v0] User data loaded:", {
-              userId: memberId,
-              displayName: userData.displayName,
-              email: userData.email,
-            })
-
-            // Use fallback values if displayName or email is missing
-            const displayName = userData.displayName || userData.email?.split("@")[0] || "Unknown User"
-            const email = userData.email || "No email"
-
-            memberInfoData.push({
-              userId: memberId,
-              displayName: displayName,
-              email: email,
-              isAdmin: data.admins.includes(memberId),
-            })
-          } else {
-            console.log("[v0] User document does not exist for:", memberId)
-          }
+    // 🔹 Listen for realtime status updates per member
+    const listenToMemberStatus = (memberId: string) => {
+      const memberStatusRef = ref(database, `status/${memberId}`)
+      const unsubscribe = onValue(memberStatusRef, (snapshot) => {
+        const data = snapshot.val()
+        if (data?.status) {
+          setMembers((prev) =>
+            prev.map((m) =>
+              m.userId === memberId ? { ...m, status: data.status } : m
+            )
+          )
         }
-        console.log("[v0] Final member info data:", memberInfoData)
-        setMembers(memberInfoData)
-
-        const friendsRef = collection(db, "friends")
-        const q = query(friendsRef, where("userId", "==", user.uid))
-        const snapshot = await getDocs(q)
-        const friendsData = snapshot.docs
-          .map((doc) => ({
-            friendId: doc.data().friendId,
-            friendName: doc.data().friendName,
-          }))
-          .filter((friend) => !data.members.includes(friend.friendId))
-        setFriends(friendsData)
-      }
+      })
+      statusUnsubscribers.push(() => off(memberStatusRef))
     }
 
+    // 🔹 Load group + member info
+    const loadGroupData = async (groupData?: GroupInfo) => {
+      const data =
+        groupData ?? (await getDoc(doc(db, "groups", groupId))).data() as GroupInfo
+      if (!data) return
+
+      setGroupInfo(data)
+      setGroupName(data.name)
+      setDescription(data.description)
+
+      // Keep previously known statuses
+      setMembers((prev) => {
+        const prevStatuses = Object.fromEntries(
+          prev.map((m) => [m.userId, m.status])
+        )
+
+        return data.members.map((memberId) => {
+          const old = prev.find((m) => m.userId === memberId)
+          return (
+            old ?? {
+              userId: memberId,
+              displayName: "",
+              email: "",
+              photoURL: null,
+              isAdmin: data.admins.includes(memberId),
+              status: prevStatuses[memberId] || "loading...",
+            }
+          )
+        })
+      })
+
+      // Load user info for members missing details
+      const memberInfoData: MemberInfo[] = []
+      for (const memberId of data.members) {
+        const userDoc = await getDoc(doc(db, "users", memberId))
+        if (userDoc.exists()) {
+          const userData = userDoc.data()
+          const displayName =
+            userData.displayName || userData.email?.split("@")[0] || "Unknown User"
+          const email = userData.email || "No email"
+
+          memberInfoData.push({
+            userId: memberId,
+            displayName,
+            email,
+            photoURL: userData.photoURL || null,
+            isAdmin: data.admins.includes(memberId),
+            status: "loading...",
+          })
+
+          // Start listening for realtime updates (only once per member)
+          listenToMemberStatus(memberId)
+        }
+      }
+
+      // Merge new member info with existing status
+      setMembers((prev) =>
+        memberInfoData.map((m) => ({
+          ...m,
+          status: prev.find((p) => p.userId === m.userId)?.status || "loading...",
+        }))
+      )
+    }
+
+    // 🔹 Firestore group listener
+    const unsubscribeGroup = onSnapshot(doc(db, "groups", groupId), (snapshot) => {
+      if (snapshot.exists()) {
+        loadGroupData(snapshot.data() as GroupInfo)
+      }
+    })
+
+    // 🔹 Initial load
     loadGroupData()
+
+    // 🔹 Cleanup
+    return () => {
+      unsubscribeGroup()
+      statusUnsubscribers.forEach((unsub) => unsub())
+    }
   }, [groupId, user])
+
+  useEffect(() => {
+    if (!user) return
+
+    console.log("[v0] Loading friends for user:", user.uid)
+
+    const friendsRef = collection(db, "friends")
+    const q = query(friendsRef, where("userId", "==", user.uid))
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const friendsData = snapshot.docs.map((doc) => ({
+        friendId: doc.data().friendId,
+        friendName: doc.data().friendName,
+        photoURL: doc.data().photoURL,
+      }))
+      console.log("[v0] Friends loaded:", friendsData.length, friendsData)
+      setFriends(friendsData)
+    })
+
+    return () => unsubscribe()
+  }, [user, groupId])
 
   const handleUpdateGroup = async () => {
     if (!groupId || !groupName.trim()) return
@@ -202,7 +272,7 @@ export default function GroupSettingsPage() {
 
       setSelectedFriends([])
       setShowAddMembers(false)
-      window.location.reload()
+      // setTimeout(() => window.location.reload(), 2500)
     } catch (error: any) {
       toast({
         title: "Failed to add members",
@@ -214,7 +284,7 @@ export default function GroupSettingsPage() {
     }
   }
 
-  const handleRemoveMember = async (memberId: string) => {
+  const handleRemoveMember = async (memberId: string, fromLeaveGroup: boolean = false) => {
     if (!groupId) return
 
     setLoading(true)
@@ -233,15 +303,15 @@ export default function GroupSettingsPage() {
       await Promise.all(deletePromises)
 
       toast({
-        title: "Member removed",
-        description: "Member has been removed from the group.",
+        title: fromLeaveGroup ? "Group left" : "Member removed",
+        description: fromLeaveGroup ? "You have successfully left the group." : "Member has been removed from the group.",
       })
 
       setMemberToRemove(null)
-      window.location.reload()
+      // setTimeout(() => window.location.reload(), 2500)
     } catch (error: any) {
       toast({
-        title: "Failed to remove member",
+        title: fromLeaveGroup ? "Failed to leave group" : "Failed to remove member",
         description: error.message || "Please try again.",
         variant: "destructive",
       })
@@ -265,7 +335,7 @@ export default function GroupSettingsPage() {
         })
         toast({ title: "Admin added" })
       }
-      window.location.reload()
+      // setTimeout(() => window.location.reload(), 2500)
     } catch (error: any) {
       toast({
         title: "Failed to update admin",
@@ -281,9 +351,9 @@ export default function GroupSettingsPage() {
     setLoading(true)
     try {
       // First, remove current user from admins
-      await updateDoc(doc(db, "groups", groupId), {
-        admins: arrayRemove(user.uid),
-      })
+      // await updateDoc(doc(db, "groups", groupId), {
+      //   admins: arrayRemove(user.uid),
+      // })
 
       // Then, update the group's createdBy field and ensure new owner is an admin
       await updateDoc(doc(db, "groups", groupId), {
@@ -297,7 +367,7 @@ export default function GroupSettingsPage() {
       })
 
       setMemberToTransferTo(null)
-      window.location.reload()
+      // setTimeout(() => window.location.reload(), 2500)
     } catch (error: any) {
       toast({
         title: "Failed to transfer ownership",
@@ -355,7 +425,7 @@ export default function GroupSettingsPage() {
       if (isCreator && members.length > 1) {
         toast({
           title: "Cannot leave group",
-          description: "As the creator, you must transfer ownership or delete the group first.",
+          description: "As the owner, you must transfer ownership or delete the group first.",
           variant: "destructive",
         })
         setShowLeaveDialog(false)
@@ -363,7 +433,7 @@ export default function GroupSettingsPage() {
         return
       }
 
-      await handleRemoveMember(user.uid)
+      await handleRemoveMember(user.uid, true)
       router.push("/dashboard")
     } catch (error: any) {
       toast({
@@ -396,48 +466,50 @@ export default function GroupSettingsPage() {
 
         <div className="space-y-6">
           {/* Group Info */}
-          {isAdmin && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Group Information</CardTitle>
-                <CardDescription>Update group name and description</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="groupName">Group Name</Label>
-                  <Input
-                    id="groupName"
-                    value={groupName}
-                    onChange={(e) => setGroupName(e.target.value)}
-                    placeholder="Enter group name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="What's this group about?"
-                    rows={3}
-                  />
-                </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Group Information</CardTitle>
+              {isAdmin && <CardDescription>Update group name and description</CardDescription>}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="groupName">Group Name</Label>
+                <Input
+                  id="groupName"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="Enter group name"
+                  readOnly={!isAdmin}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={isAdmin ? "What's this group about?" : "No description available"}
+                  rows={3}
+                  className="resize-none"
+                  readOnly={!isAdmin}
+                  autoComplete="off"
+                />
+              </div>
+              {isAdmin && (
                 <Button onClick={handleUpdateGroup} disabled={loading || !groupName.trim()}>
-                  {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Save Changes
+                  {loading ? <Loader2 className="mr-0.5 h-4 w-4 animate-spin" /> : null}
+                  {loading ? "Saving..." : "Save Changes"}
                 </Button>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
 
           {/* Members */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Members ({members.length})</CardTitle>
-                  <CardDescription>Manage group members and permissions</CardDescription>
-                </div>
+                <CardTitle className="flex items-center gap-2">Members <Badge variant="secondary">{members.length}</Badge></CardTitle>
                 {isAdmin && (
                   <Button onClick={() => setShowAddMembers(true)} size="sm">
                     <UserPlus className="h-4 w-4 mr-2" />
@@ -445,51 +517,61 @@ export default function GroupSettingsPage() {
                   </Button>
                 )}
               </div>
+              {isAdmin && <CardDescription className="-mt-2">Manage group members and permissions</CardDescription>}
             </CardHeader>
-            <CardContent>
+            <CardContent className="max-h-100 overflow-y-auto">
               <div className="space-y-2">
-                {members.map((member) => (
+                {members.map((member) => 
+                  member.displayName && (
                   <div key={member.userId} className="flex items-center justify-between p-3 rounded-lg border">
                     <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          {member.displayName?.charAt(0).toUpperCase() || "?"}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="relative">
+                        <Avatar className="h-12 w-12">
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            {member.photoURL ? <img src={member.photoURL} alt="Profile" /> : member.displayName?.charAt(0).toUpperCase() || <User />}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div
+                          className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card ${
+                            member.status === "online" ? "bg-green-500" : "bg-gray-400"
+                          }`}
+                        />
+                      </div>
                       <div>
-                        <p className="font-medium text-foreground flex items-center gap-2">
+                        <p className="font-medium text-foreground flex items-center gap-2 mb-1">
                           {member.displayName || "Unknown User"}
-                          {member.isAdmin && <Shield className="h-4 w-4 text-primary" />}
-                          {member.userId === groupInfo.createdBy && <Crown className="h-4 w-4 text-yellow-500" />}
+                          {member.userId === user.uid && <Badge variant="secondary">You</Badge>}
+                          {member.isAdmin && <Badge variant="secondary"><Shield className="h-4 w-4 text-primary" /> Admin</Badge>}
+                          {member.userId === groupInfo.createdBy && <Badge variant="secondary"><Crown className="h-4 w-4 text-yellow-500" /> Owner</Badge>}
                         </p>
                         <p className="text-sm text-muted-foreground">{member.email}</p>
                       </div>
                     </div>
-                    {isAdmin && member.userId !== user.uid && (
+                    {isAdmin && member.userId !== user.uid && (!member.isAdmin || isCreator) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button size="sm">
                             Manage
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {isCreator && (
                             <>
-                              <DropdownMenuItem onClick={() => setMemberToTransferTo(member.userId)}>
-                                <Crown className="h-4 w-4 mr-2" />
+                              <DropdownMenuItem className="group" onClick={() => setMemberToTransferTo(member.userId)}>
+                                <Crown className="h-4 w-4 mr-0.5 group-hover:text-white" />
                                 Transfer Ownership
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleToggleAdmin(member.userId, member.isAdmin)}>
-                                <Shield className="h-4 w-4 mr-2" />
+                              <DropdownMenuItem className="group" onClick={() => handleToggleAdmin(member.userId, member.isAdmin)}>
+                                <Shield className="h-4 w-4 mr-0.5 group-hover:text-white" />
                                 {member.isAdmin ? "Remove Admin" : "Make Admin"}
                               </DropdownMenuItem>
                             </>
                           )}
                           <DropdownMenuItem
                             onClick={() => setMemberToRemove(member.userId)}
-                            className="text-destructive"
+                            className="text-destructive group"
                           >
-                            <Trash2 className="h-4 w-4 mr-2" />
+                            <Trash2 className="h-4 w-4 mr-0.5 text-red-500 group-hover:text-white" />
                             Remove
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -508,13 +590,16 @@ export default function GroupSettingsPage() {
               <CardDescription>Irreversible actions</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div>
-                <Button variant="destructive" onClick={() => setShowLeaveDialog(true)}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Leave Group
-                </Button>
-              </div>
-              {isAdmin && (
+              {members.length > 1 && 
+                <div>
+                  <Button variant="destructive" onClick={() => setShowLeaveDialog(true)}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Leave Group
+                  </Button>
+                </div>
+              }
+
+              {isCreator && (
                 <div>
                   <Button variant="destructive" onClick={() => setShowDeleteGroupDialog(true)}>
                     <Trash2 className="h-4 w-4 mr-2" />
@@ -535,29 +620,40 @@ export default function GroupSettingsPage() {
             <DialogDescription>Select friends to add to the group</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {friends.length === 0 ? (
+            {friends.filter((friend) => !members.some((member) => member.userId === friend.friendId)).length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
-                All your friends are already in this group.
+                No friends to add
               </p>
             ) : (
-              friends.map((friend) => (
-                <div key={friend.friendId} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={friend.friendId}
-                    checked={selectedFriends.includes(friend.friendId)}
-                    onCheckedChange={() =>
-                      setSelectedFriends((prev) =>
-                        prev.includes(friend.friendId)
-                          ? prev.filter((id) => id !== friend.friendId)
-                          : [...prev, friend.friendId],
-                      )
-                    }
-                  />
-                  <label htmlFor={friend.friendId} className="text-sm font-medium cursor-pointer">
-                    {friend.friendName}
+              <div className="max-h-80 overflow-y-auto border rounded-lg p-3 grid gap-2 grid-cols-1">
+                {friends.filter((friend) => !members.some((member) => member.userId === friend.friendId)).map((friend) => (
+                  <label
+                    key={friend.friendId}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    <Card className="flex flex-row items-center pl-5 py-1.5 gap-2 rounded-sm hover:shadow-md">
+                      <Checkbox
+                        checked={selectedFriends.includes(friend.friendId)}
+                        onCheckedChange={() =>
+                          setSelectedFriends((prev) =>
+                            prev.includes(friend.friendId)
+                              ? prev.filter((id) => id !== friend.friendId)
+                              : [...prev, friend.friendId],
+                          )
+                        }
+                      />
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback className="bg-primary text-primary-foreground">
+                              {friend.photoURL ? <img src={friend.photoURL} alt="Profile" /> : friend.friendName?.charAt(0).toUpperCase() || <User />}
+                            </AvatarFallback>
+                          </Avatar>
+                          {friend.friendName}
+                        </div>
+                    </Card>
                   </label>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
           <DialogFooter>
@@ -565,8 +661,8 @@ export default function GroupSettingsPage() {
               Cancel
             </Button>
             <Button onClick={handleAddMembers} disabled={loading || selectedFriends.length === 0}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Add Members
+              {loading ? <Loader2 className="mr-0.5 h-4 w-4 animate-spin" /> : null}
+              {loading ? "Adding..." : "Add Members"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -584,7 +680,8 @@ export default function GroupSettingsPage() {
               Cancel
             </Button>
             <Button variant="destructive" onClick={() => memberToRemove && handleRemoveMember(memberToRemove)}>
-              Remove
+              {loading ? <Loader2 className="mr-0.5 h-4 w-4 animate-spin" /> : null}
+              {loading ? "Removing..." : "Remove"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -596,7 +693,7 @@ export default function GroupSettingsPage() {
           <DialogHeader>
             <DialogTitle>Transfer Ownership</DialogTitle>
             <DialogDescription>
-              Are you sure you want to transfer group ownership to this member? You will no longer be the creator, but
+              Are you sure you want to transfer group ownership to this member? You will no longer be the owner, but
               you will remain an admin.
             </DialogDescription>
           </DialogHeader>
@@ -608,8 +705,8 @@ export default function GroupSettingsPage() {
               onClick={() => memberToTransferTo && handleTransferOwnership(memberToTransferTo)}
               disabled={loading}
             >
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Transfer Ownership
+              {loading ? <Loader2 className="mr-0.5 h-4 w-4 animate-spin" /> : null}
+              {loading ? "Transferring..." : "Transfer Ownership"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -630,8 +727,8 @@ export default function GroupSettingsPage() {
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDeleteGroup} disabled={loading}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Delete Group
+              {loading ? <Loader2 className="mr-0.5 h-4 w-4 animate-spin" /> : null}
+              {loading ? "Deleting..." : "Delete Group"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -651,8 +748,8 @@ export default function GroupSettingsPage() {
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleLeaveGroup} disabled={loading}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Leave Group
+              {loading ? <Loader2 className="mr-0.5 h-4 w-4 animate-spin" /> : null}
+              {loading ? "Leaving..." : "Leave Group"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -4,12 +4,13 @@ import type React from "react"
 import { useEffect, useState, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { collection, query, addDoc, onSnapshot, orderBy, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { db, database } from "@/lib/firebase"
+import { ref, onValue, off } from "firebase/database"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ArrowLeft, Send, Loader2, Users, Settings, Smile, MoreVertical, Pencil, Trash2 } from "lucide-react"
+import { ArrowLeft, Send, Loader2, Users, Settings, Smile, MoreVertical, Pencil, Trash2, Copy, Check, User } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -21,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { is } from "date-fns/locale"
 
 interface Message {
   id: string
@@ -46,6 +48,8 @@ interface MemberInfo {
   [userId: string]: {
     displayName: string
     email: string
+    photoURL: string
+    status: string
   }
 }
 
@@ -68,11 +72,33 @@ export default function GroupChatPage() {
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const reactionEmojis = ["👍", "❤️", "😂", "😮", "😢", "🙏"]
+  const reactionEmojis = ["👍", "❤️", "😂", "😮", "😢", "😠", "🤬", "🖕", "🙏"]
 
   useEffect(() => {
     if (!groupId || !user) return
 
+    // ✅ Step 1: Define a listener-based function (not Promise)
+    const listenToMemberStatus = (memberId: string) => {
+      const memberStatusRef = ref(database, `status/${memberId}`)
+      // Subscribe to real-time updates
+      const unsubscribe = onValue(memberStatusRef, (snapshot) => {
+        const data = snapshot.val()
+        if (data) {
+          setMemberInfo((prev) => ({
+            ...prev,
+            [memberId]: {
+              ...prev[memberId],
+              status: data.status,
+            },
+          }))
+        }
+      })
+
+      // Return cleanup function for this listener
+      return () => off(memberStatusRef)
+    }
+
+    // ✅ Step 2: Load group info and start listeners
     const loadGroupInfo = async () => {
       const groupDoc = await getDoc(doc(db, "groups", groupId))
       if (groupDoc.exists()) {
@@ -80,28 +106,50 @@ export default function GroupChatPage() {
         setGroupInfo(data)
 
         const memberInfoData: MemberInfo = {}
+
+        // Fetch initial member info from Firestore
         for (const memberId of data.members) {
           const userDoc = await getDoc(doc(db, "users", memberId))
           if (userDoc.exists()) {
             memberInfoData[memberId] = {
               displayName: userDoc.data().displayName,
               email: userDoc.data().email,
+              photoURL: userDoc.data().photoURL,
+              status: "loading...", // placeholder until real-time update comes
             }
           }
         }
+
         setMemberInfo(memberInfoData)
+
+        // ✅ Now attach live status listeners for each member
+        const unsubscribers = data.members.map((memberId) =>
+          listenToMemberStatus(memberId)
+        )
+
+        // Cleanup all listeners when component unmounts
+        return () => unsubscribers.forEach((u) => u())
       }
     }
 
-    loadGroupInfo()
+    let cleanupListeners: (() => void) | undefined
 
-    const unsubscribe = onSnapshot(doc(db, "groups", groupId), (doc) => {
+    loadGroupInfo().then((cleanup) => {
+      cleanupListeners = cleanup
+    })
+
+    // ✅ Step 3: Listen to changes in the group document itself
+    const unsubscribeGroup = onSnapshot(doc(db, "groups", groupId), (doc) => {
       if (doc.exists()) {
         setGroupInfo(doc.data() as GroupInfo)
       }
     })
 
-    return () => unsubscribe()
+    // ✅ Step 4: Cleanup everything
+    return () => {
+      unsubscribeGroup()
+      if (cleanupListeners) cleanupListeners()
+    }
   }, [groupId, user])
 
   useEffect(() => {
@@ -219,6 +267,21 @@ export default function GroupChatPage() {
     }
   }
 
+  const copyMessage = async (message: Message) => {
+    try {
+      await navigator.clipboard.writeText(message.text)
+      toast({
+        title: "Message copied to clipboard",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Failed to copy message",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleDeleteMessage = async () => {
     if (!groupId || !messageToDelete) return
 
@@ -259,10 +322,10 @@ export default function GroupChatPage() {
   return (
     <div className="min-h-screen gradient-bg flex flex-col">
       {/* Header */}
-      <div className="bg-card/95 backdrop-blur-sm border-b border-border/50 p-4">
+      <div className="bg-card/95 backdrop-blur-sm border-b border-border/50 p-4 fixed top-0 w-full z-1 h-18">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+            <Button variant="ghost" size="icon" onClick={() => {router.push("/dashboard");localStorage.setItem("tabActive", "groups");}}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <Avatar className="h-10 w-10">
@@ -282,7 +345,7 @@ export default function GroupChatPage() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 my-18">
         <div className="max-w-4xl mx-auto space-y-4">
           {messages.length === 0 ? (
             <div className="text-center py-12">
@@ -303,7 +366,7 @@ export default function GroupChatPage() {
                 <div key={message.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[70%] ${isOwn ? "items-end" : "items-start"} flex flex-col gap-1`}>
                     {!isOwn && (
-                      <span className="text-xs font-medium text-muted-foreground px-2">
+                      <span className="text-xs font-medium text-muted-foreground ml-8">
                         {memberInfo[message.senderId]?.displayName || message.senderName}
                       </span>
                     )}
@@ -327,104 +390,128 @@ export default function GroupChatPage() {
                             Cancel
                           </Button>
                           <Button size="sm" onClick={() => handleEditMessage(message.id)}>
-                            Save
+                            <Check className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
                     ) : (
-                      <div className="relative group">
-                        <div
-                          className={`rounded-2xl px-4 py-2 ${
-                            isOwn
-                              ? "bg-primary text-primary-foreground rounded-br-sm"
-                              : "bg-card text-card-foreground border border-border/50 rounded-bl-sm"
-                          } ${message.deleted ? "italic opacity-70" : ""}`}
-                        >
-                          <p className="text-sm leading-relaxed break-words">{message.text}</p>
-                          {message.edited && !message.deleted && (
-                            <span className="text-xs opacity-60 ml-2">(edited)</span>
+                      <div className="flex items-center gap-1.5">
+                        {!isOwn && (
+                          <div className="relative">
+                            <Avatar className="h-6 w-6">
+                              <AvatarFallback className="bg-primary text-primary-foreground text-md">
+                                {memberInfo[message.senderId]?.photoURL ? <img src={memberInfo[message.senderId]?.photoURL} alt="Profile" /> : memberInfo[message.senderId]?.displayName?.charAt(0).toUpperCase() || <User />}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div
+                              className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-card ${
+                                (memberInfo[message.senderId]?.status) === "online" ? "bg-green-500" : "bg-gray-400"
+                              }`}
+                            />
+                          </div>
+                        )}
+                        <div className="relative group">
+                          <div
+                            className={`rounded-2xl px-4 py-2 ${
+                              isOwn
+                                ? "bg-primary text-primary-foreground rounded-br-sm"
+                                : "bg-card text-card-foreground border border-border/50 rounded-bl-sm"
+                            } ${message.deleted ? "italic opacity-70" : ""}`}
+                          >
+                            <p className="text-sm leading-relaxed break-words">{message.text}</p>
+                            {message.edited && !message.deleted && (
+                              <span className="text-xs opacity-60 ml-2">(edited)</span>
+                            )}
+                          </div>
+
+                          {!message.deleted && (
+                            <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="icon" variant="secondary" className="h-6 w-6 rounded-full">
+                                    <MoreVertical className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {isOwn && (
+                                    <DropdownMenuItem onClick={() => startEdit(message)} className="group">
+                                      <Pencil className="h-4 w-4 mr-0.5 group-hover:text-white" />
+                                      Edit
+                                    </DropdownMenuItem>                                
+                                  )}
+                                  <DropdownMenuItem onClick={() => copyMessage(message)} className="group">
+                                    <Copy className="h-4 w-4 mr-0.5 group-hover:text-white" />
+                                    Copy
+                                  </DropdownMenuItem>
+                                  {isOwn && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setMessageToDelete(message.id)
+                                        setDeleteDialogOpen(true)
+                                      }}
+                                      className="group text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-0.5 text-red-500 group-hover:text-white" />
+                                      Delete
+                                    </DropdownMenuItem>    
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          )}
+
+                          {!message.deleted && (
+                            <div className="absolute -bottom-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <DropdownMenu
+                                open={showReactionPicker === message.id}
+                                onOpenChange={(open) => setShowReactionPicker(open ? message.id : null)}
+                              >
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="icon" variant="secondary" className="h-6 w-6 rounded-full">
+                                    <Smile className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <div className="flex gap-1 p-1">
+                                    {reactionEmojis.map((emoji) => (
+                                      <Button
+                                        key={emoji}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-lg hover:scale-125 transition-transform"
+                                        onClick={() => handleReaction(message.id, emoji)}
+                                      >
+                                        {emoji}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           )}
                         </div>
-
-                        {isOwn && !message.deleted && (
-                          <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button size="icon" variant="secondary" className="h-6 w-6 rounded-full">
-                                  <MoreVertical className="h-3 w-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => startEdit(message)}>
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setMessageToDelete(message.id)
-                                    setDeleteDialogOpen(true)
-                                  }}
-                                  className="text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        )}
-
-                        {!message.deleted && (
-                          <div className="absolute -bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <DropdownMenu
-                              open={showReactionPicker === message.id}
-                              onOpenChange={(open) => setShowReactionPicker(open ? message.id : null)}
-                            >
-                              <DropdownMenuTrigger asChild>
-                                <Button size="icon" variant="secondary" className="h-6 w-6 rounded-full">
-                                  <Smile className="h-3 w-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent>
-                                <div className="flex gap-1 p-1">
-                                  {reactionEmojis.map((emoji) => (
-                                    <Button
-                                      key={emoji}
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0 text-lg hover:scale-125 transition-transform"
-                                      onClick={() => handleReaction(message.id, emoji)}
-                                    >
-                                      {emoji}
-                                    </Button>
-                                  ))}
-                                </div>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        )}
-
-                        {message.reactions && Object.keys(message.reactions).length > 0 && (
-                          <div className="flex gap-1 mt-1 flex-wrap">
-                            {Object.entries(reactionCounts).map(([emoji, count]) => (
-                              <button
-                                key={emoji}
-                                onClick={() => handleReaction(message.id, emoji)}
-                                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-                                  message.reactions?.[user.uid] === emoji
-                                    ? "bg-primary/20 border-primary"
-                                    : "bg-card border-border hover:bg-accent"
-                                }`}
-                              >
-                                {emoji} {count}
-                              </button>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     )}
 
-                    <span className="text-xs text-muted-foreground px-2">
+                    {message.reactions && Object.keys(message.reactions).length > 0 && (
+                      <div className="flex gap-1 mt-0 ml-8 flex-wrap">
+                        {Object.entries(reactionCounts).map(([emoji, count]) => (
+                          <button
+                            key={emoji}
+                            onClick={() => handleReaction(message.id, emoji)}
+                            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                              message.reactions?.[user.uid] === emoji
+                                ? "bg-primary/20 border-primary"
+                                : "bg-card border-border hover:bg-accent"
+                            }`}
+                          >
+                            {emoji} {count}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <span className="text-xs text-muted-foreground ml-8">
                       {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
                     </span>
                   </div>
@@ -437,7 +524,7 @@ export default function GroupChatPage() {
       </div>
 
       {/* Input */}
-      <div className="bg-card/95 backdrop-blur-sm border-t border-border/50 p-4">
+      <div className="bg-card/95 backdrop-blur-sm border-t border-border/50 p-4 fixed bottom-0 w-full z-1 h-18">
         <div className="max-w-4xl mx-auto">
           <form onSubmit={handleSendMessage} className="flex gap-2">
             <Input
@@ -445,6 +532,7 @@ export default function GroupChatPage() {
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type a message..."
               disabled={loading}
+              autoComplete="nope"
               className="flex-1"
             />
             <Button type="submit" disabled={loading || !newMessage.trim()}>

@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Search, UserPlus } from "lucide-react"
+import { Loader2, Search, UserPlus, User } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { se } from "date-fns/locale"
 
 export function AddFriend() {
   const [searchData, setSearchData] = useState("")
@@ -218,8 +220,11 @@ export function AddFriend() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">Add a Friend</h2>
-        <p className="text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <UserPlus className="h-5 w-5 text-muted-foreground" />
+          <h3 className="text-lg font-semibold text-foreground">Add new Friend</h3>
+        </div>
+        <p className="text-muted-foreground mt-2 text-sm">
           Search for friends by their name or email address
         </p>
       </div>
@@ -251,18 +256,18 @@ export function AddFriend() {
 
       {searchResults.length > 0 && (
         <div className="space-y-3">
-          <h3 className="font-semibold text-lg">Search Results ({searchResults.length})</h3>
+          <h3 className="font-semibold text-lg flex items-center gap-2">Search Results <Badge variant="secondary">{searchResults.length}</Badge></h3>
           {searchResults.map((result) => (
             <Card key={result.uid} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12">
-                      <AvatarFallback className="bg-primary text-primary-foreground text-lg">
+                      <AvatarFallback className="bg-primary text-primary-foreground">
                         {result.photoURL ? <img src={result.photoURL} alt="Profile" /> : result.displayName?.charAt(0).toUpperCase() || 
                          result.username?.charAt(0).toUpperCase() || 
                          result.email?.charAt(0).toUpperCase() || 
-                         "U"}
+                         <User />}
                       </AvatarFallback>
                     </Avatar>
                     <div>

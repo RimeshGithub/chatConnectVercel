@@ -82,8 +82,8 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
       }
 
       toast({
-        title: "Account created!",
-        description: "Welcome to ChatConnect.",
+        title: "Welcome!",
+        description: "You have successfully logged in with Google.",
       })
     } catch (error: any) {
       toast({

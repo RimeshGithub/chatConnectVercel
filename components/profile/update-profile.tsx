@@ -67,7 +67,7 @@ export function UpdateProfile({ open, onOpenChange }: UpdateProfileProps) {
       })
 
       onOpenChange(false)
-      window.location.reload()
+      // setTimeout(() => window.location.reload(), 2500)
     } catch (error: any) {
       toast({
         title: "Failed to update profile",
@@ -96,6 +96,8 @@ export function UpdateProfile({ open, onOpenChange }: UpdateProfileProps) {
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Enter your display name"
                 required
+                autoComplete="off"
+                spellCheck="false"
               />
             </div>
           </div>
@@ -104,7 +106,7 @@ export function UpdateProfile({ open, onOpenChange }: UpdateProfileProps) {
               Cancel
             </Button>
             <Button type="submit" disabled={loading || !displayName.trim()}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading && <Loader2 className="mr-0.5 h-4 w-4 animate-spin" />}
               {loading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>

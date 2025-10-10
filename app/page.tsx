@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { LoginForm } from "@/components/auth/login-form"
 import { SignupForm } from "@/components/auth/signup-form"
-import { Loader2, MessageCircle } from "lucide-react"
+import { Loader2, MessageSquare } from "lucide-react"
 import { useEffect } from "react"
 
 export default function AuthPage() {
@@ -36,12 +36,10 @@ export default function AuthPage() {
       <div className="w-full max-w-md space-y-4">
         <div className="text-center space-y-2">
           <div className="flex justify-center items-center gap-3 mb-4">
-            <div className="bg-primary text-primary-foreground p-4 rounded-2xl shadow-lg">
-              <MessageCircle className="h-10 w-10" />
-            </div>
+            <img src="/chat_icon.png" className="h-15 w-15 rounded-xl shadow-lg" alt="Profile" />
             <h1 className="text-4xl font-bold text-foreground">ChatConnect</h1>
           </div>
-          <p className="text-muted-foreground text-lg">Connect with friends and start chatting</p>
+          <p className="text-muted-foreground text-lg">Connect with friends and start chatting!</p>
         </div>
 
         {isLogin ? (

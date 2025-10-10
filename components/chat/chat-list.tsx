@@ -7,7 +7,7 @@ import { ref, onValue } from "firebase/database"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { MessageSquare } from "lucide-react"
+import { MessageSquare, User } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { formatDistanceToNow } from "date-fns"
 
@@ -48,7 +48,6 @@ export function ChatList() {
         if (data) {
           setFriendStatusInfo(prev => {
             const newState = { ...prev, [friendId]: data.status }
-            console.log("Updated:", newState)
             return newState
           })
         }
@@ -160,12 +159,12 @@ export function ChatList() {
                   <div className="relative">
                     <Avatar className="h-12 w-12">
                       <AvatarFallback className="bg-primary text-primary-foreground">
-                        {chat.friendPhotoURL ? <img src={chat.friendPhotoURL} alt="Profile" /> : chat.friendName?.charAt(0).toUpperCase() || "U"}
+                        {chat.friendPhotoURL ? <img src={chat.friendPhotoURL} alt="Profile" /> : chat.friendName?.charAt(0).toUpperCase() || <User />}
                       </AvatarFallback>
                     </Avatar>
                     <div
                       className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card ${
-                        friendStatusInfo?.friendId === "online" ? "bg-green-500" : "bg-gray-400"
+                        (friendStatusInfo && friendStatusInfo[chat.friendId]) === "online" ? "bg-green-500" : "bg-gray-400"
                       }`}
                     />
                   </div>

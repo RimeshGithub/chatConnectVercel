@@ -68,7 +68,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
       }
 
       toast({
-        title: "Welcome back!",
+        title: "Welcome!",
         description: "You have successfully logged in with Google.",
       })
     } catch (error: any) {

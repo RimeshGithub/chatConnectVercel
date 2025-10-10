@@ -8,7 +8,8 @@ import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { MessageSquare, Users, MoreVertical, UserMinus } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { MessageSquare, Users, MoreVertical, UserMinus, Plus, User } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -32,7 +33,7 @@ interface Friend {
 
 export function FriendsList() {
   const [friends, setFriends] = useState<Friend[]>([])
-  const [friendStatus, setFriendStatus] = useState<{ friendId: string } | null>(null)
+  const [friendStatusInfo, setFriendStatusInfo] = useState<Record<string, string> | null>(null)
   const { user } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
@@ -47,10 +48,10 @@ export function FriendsList() {
       onValue(friendStatus, (snapshot) => {
         const data = snapshot.val()
         if (data) {
-          setFriendStatus((prev) => ({
-            ...prev,
-            friendId: data.status,
-          }))
+          setFriendStatusInfo(prev => {
+            const newState = { ...prev, [friendId]: data.status }
+            return newState
+          })
         }
       })
     }
@@ -125,8 +126,10 @@ export function FriendsList() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Users className="h-5 w-5 text-muted-foreground" />
-        <h3 className="text-lg font-semibold text-foreground">Your Friends</h3>
-        <span className="text-lg font-semibold text-foreground">({friends.length})</span>
+        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">Your Friends <Badge variant="secondary">{friends.length}</Badge></h3>
+        <Button onClick={() => {router.push("/");localStorage.setItem("tabActive", "add");}} className="flex items-center ml-auto">
+          <Plus className="mr-0.5 h-4 w-4" /> Add Friend
+        </Button>
       </div>
 
       {friends.length === 0 ? (
@@ -146,12 +149,12 @@ export function FriendsList() {
                     <div className="relative">
                       <Avatar className="h-10 w-10">
                         <AvatarFallback className="bg-primary text-primary-foreground">
-                          {friend.photoURL ? <img src={friend.photoURL} alt="Profile" /> : friend.friendName?.charAt(0).toUpperCase() || "U"}
+                          {friend.photoURL ? <img src={friend.photoURL} alt="Profile" /> : friend.friendName?.charAt(0).toUpperCase() || <User />}
                         </AvatarFallback>
                       </Avatar>
                       <div
                         className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card ${
-                          friendStatus?.friendId === "online" ? "bg-green-500" : "bg-gray-400"
+                          (friendStatusInfo && friendStatusInfo[friend.friendId]) === "online" ? "bg-green-500" : "bg-gray-400"
                         }`}
                       />
                     </div>
@@ -159,7 +162,7 @@ export function FriendsList() {
                       <p className="font-medium text-foreground">{friend.friendName}</p>
                       <p className="text-xs text-muted-foreground">{friend.friendEmail}</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {friendStatus?.friendId === "online" ? "Online" : "Offline"}
+                        {(friendStatusInfo && friendStatusInfo[friend.friendId]) === "online" ? "Online" : "Offline"}
                       </p>
                     </div>
                   </div>

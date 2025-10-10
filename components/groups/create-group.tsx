@@ -12,15 +12,17 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Users } from "lucide-react"
+import { Loader2, Users, Plus, User } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 interface Friend {
   friendId: string
   friendName: string
+  photoURL?: string
 }
 
-export function CreateGroup({ friends }: { friends: Friend[] }) {
+export function CreateGroup({ friends, toggleDiaglogBox }: { friends: Friend[], toggleDiaglogBox: () => void }) {
   const [groupName, setGroupName] = useState("")
   const [description, setDescription] = useState("")
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
@@ -73,6 +75,7 @@ export function CreateGroup({ friends }: { friends: Friend[] }) {
       setGroupName("")
       setDescription("")
       setSelectedMembers([])
+      toggleDiaglogBox()
     } catch (error: any) {
       toast({
         title: "Failed to create group",
@@ -107,6 +110,7 @@ export function CreateGroup({ friends }: { friends: Friend[] }) {
               onChange={(e) => setGroupName(e.target.value)}
               placeholder="Enter group name"
               required
+              autoComplete="off"
             />
           </div>
 
@@ -118,51 +122,68 @@ export function CreateGroup({ friends }: { friends: Friend[] }) {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What's this group about?"
               rows={3}
+              className="resize-none"
+              autoComplete="nope"
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Select Members</Label>
+            <div className="flex items-center justify-between">
+              <Label>Select Members</Label>
+              <p className="text-xs text-muted-foreground">{selectedMembers.length > 0 ? `
+               ${selectedMembers.length} member(s) selected`
+               : "No members selected"}
+              </p>
+            </div>
+            
             {friends.length === 0 ? (
               <p className="text-sm text-muted-foreground">You need friends to create a group.</p>
             ) : (
-              <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+              <div className="max-h-48 overflow-y-auto border rounded-lg p-3 grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {friends.map((friend) => (
-                  <div key={friend.friendId} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={friend.friendId}
-                      checked={selectedMembers.includes(friend.friendId)}
-                      onCheckedChange={() => toggleMember(friend.friendId)}
-                    />
-                    <label
-                      htmlFor={friend.friendId}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      {friend.friendName}
-                    </label>
-                  </div>
+                  <label
+                    key={friend.friendId}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    <Card className="flex flex-row items-center pl-5 py-1.5 gap-2 rounded-sm hover:shadow-md">
+                      <Checkbox
+                        checked={selectedMembers.includes(friend.friendId)}
+                        onCheckedChange={() => toggleMember(friend.friendId)}
+                      />
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback className="bg-primary text-primary-foreground">
+                              {friend.photoURL ? <img src={friend.photoURL} alt="Profile" /> : friend.friendName?.charAt(0).toUpperCase() || <User />}
+                            </AvatarFallback>
+                          </Avatar>
+                          {friend.friendName}
+                        </div>
+                    </Card>
+                  </label>
                 ))}
               </div>
             )}
-            {selectedMembers.length > 0 && (
-              <p className="text-xs text-muted-foreground">{selectedMembers.length} member(s) selected</p>
-            )}
           </div>
 
-          <Button
-            type="submit"
-            disabled={loading || !groupName.trim() || selectedMembers.length === 0}
-            className="w-full"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              "Create Group"
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="submit"
+              disabled={loading || !groupName.trim() || selectedMembers.length === 0}
+              className="flex-3"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Group"
+              )}
+            </Button>
+            <Button type="button" onClick={toggleDiaglogBox} className="flex-1">
+              Cancel
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

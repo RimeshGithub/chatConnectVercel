@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
-import { Check, X, Loader2 } from "lucide-react"
+import { Check, X, Loader2, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 interface FriendRequest {
@@ -126,8 +126,8 @@ export function FriendRequests() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-accent text-accent-foreground">
-                      {request.photoURL ? <img src={request.photoURL} alt={request.fromUserName} /> : request.fromUserName?.charAt(0).toUpperCase() || "U"}
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      {request.photoURL ? <img src={request.photoURL} alt={request.fromUserName} /> : request.fromUserName?.charAt(0).toUpperCase() || <User />}
                     </AvatarFallback>
                   </Avatar>
                   <div>

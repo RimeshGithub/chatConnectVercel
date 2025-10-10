@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { Loader2, Users, MessageSquare, UserPlus, UsersRound, Edit, LogOut } from "lucide-react"
+import { Loader2, Users, MessageSquare, UserPlus, UsersRound, Edit, LogOut, User } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { FriendsList } from "@/components/friends/friends-list"
@@ -11,7 +11,6 @@ import { FriendRequests } from "@/components/friends/friend-requests"
 import { AddFriend } from "@/components/friends/add-friend"
 import { ChatList } from "@/components/chat/chat-list"
 import { GroupsList } from "@/components/groups/groups-list"
-import { CreateGroup } from "@/components/groups/create-group"
 import { collection, query, where, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import {
@@ -25,6 +24,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { UpdateProfile } from "@/components/profile/update-profile"
+import { se } from "date-fns/locale"
 
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth()
@@ -60,6 +60,7 @@ export default function DashboardPage() {
       const friendsData = snapshot.docs.map((doc) => ({
         friendId: doc.data().friendId,
         friendName: doc.data().friendName,
+        photoURL: doc.data().photoURL,
       }))
       console.log("[v0] Friends loaded:", friendsData.length, friendsData)
       setFriends(friendsData)
@@ -187,6 +188,23 @@ export default function DashboardPage() {
     }
   }, [user])
 
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const storedTab = localStorage.getItem("tabActive")
+      if (storedTab) {
+        setTimeout(() => setActiveTab(storedTab), 100)
+        localStorage.removeItem("tabActive")
+      }
+    }
+
+    window.addEventListener("storage", handleStorageChange)
+
+    // Run immediately on mount too
+    handleStorageChange()
+
+    return () => window.removeEventListener("storage", handleStorageChange)
+  }, [])
+
   if (loading) {
     return (
       <div className="min-h-screen gradient-bg flex items-center justify-center">
@@ -210,9 +228,7 @@ export default function DashboardPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="bg-primary text-primary-foreground p-3 rounded-xl shadow-lg">
-              <MessageSquare className="h-6 w-6" />
-            </div>
+            <img src="/chat_icon.png" className="h-12 w-12 rounded-xl shadow-lg" alt="Profile" />
             <div>
               <h1 className="text-2xl font-bold text-foreground">ChatConnect</h1>
               <p className="text-sm text-muted-foreground">Welcome, {user.displayName || "User"}</p>
@@ -221,15 +237,15 @@ export default function DashboardPage() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                <Avatar>
+              <Button variant="ghost" className="relative h-14 w-14 rounded-full">
+                <Avatar className="h-12 w-12">
                   <AvatarFallback className="bg-primary text-primary-foreground">
-                    {user.photoURL ? <img src={user.photoURL} alt="Profile" /> : user.displayName?.charAt(0).toUpperCase() || "U"}
+                    {user.photoURL ? <img src={user.photoURL} alt="Profile" /> : user.displayName?.charAt(0).toUpperCase() || <User />}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-65">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium">{user.displayName}</p>
@@ -240,8 +256,8 @@ export default function DashboardPage() {
               <DropdownMenuItem onClick={() => setShowUpdateProfile(true)} className="group">
                 <Edit className="mr-0.5 h-4 w-4 group-hover:text-white" /> Change name
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSignOut} className="group">
-                <LogOut className="mr-0.5 h-4 w-4 group-hover:text-white" /> Log out
+              <DropdownMenuItem onClick={handleSignOut} className="group text-destructive">
+                <LogOut className="mr-0.5 h-4 w-4 text-red-500 group-hover:text-white" /> Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -250,12 +266,12 @@ export default function DashboardPage() {
         {/* Main Content */}
         <div className="bg-card/95 backdrop-blur-sm rounded-xl shadow-xl border border-border/50 overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="w-full justify-start rounded-xl bg-gray-100/50 backdrop-blur-sm p-0  max-md:p-1 max-md:grid max-md:grid-cols-2 max-md:gap-1 max-md:mb-14.5">
+            <TabsList className="w-full justify-start rounded-xl bg-transparent py-0.5 px-1 md:flex md:gap-1 max-md:p-1 max-md:grid max-md:grid-cols-2 max-md:gap-1 max-md:mb-12">
               <TabsTrigger
                 value="chats"
                 className="relative rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-300 
                           data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 
-                          data-[state=active]:text-white data-[state=active]:shadow-lg
+                          data-[state=active]:text-white data-[state=active]:shadow-sm
                           hover:bg-blue-100 hover:text-blue-700
                           border border-transparent group"
               >
@@ -275,7 +291,7 @@ export default function DashboardPage() {
                 value="groups"
                 className="relative rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-300 
                           data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 
-                          data-[state=active]:text-white data-[state=active]:shadow-lg
+                          data-[state=active]:text-white data-[state=active]:shadow-sm
                           hover:bg-purple-100 hover:text-purple-700
                           border border-transparent group"
               >
@@ -295,7 +311,7 @@ export default function DashboardPage() {
                 value="friends"
                 className="relative rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-300 
                           data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-green-600 
-                          data-[state=active]:text-white data-[state=active]:shadow-lg
+                          data-[state=active]:text-white data-[state=active]:shadow-sm
                           hover:bg-green-100 hover:text-green-700
                           border border-transparent group"
               >
@@ -315,7 +331,7 @@ export default function DashboardPage() {
                 value="add"
                 className="relative rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-300 
                           data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-amber-600 
-                          data-[state=active]:text-white data-[state=active]:shadow-lg
+                          data-[state=active]:text-white data-[state=active]:shadow-sm
                           hover:bg-amber-100 hover:text-amber-700
                           border border-transparent group"
               >
@@ -330,8 +346,7 @@ export default function DashboardPage() {
               </TabsContent>
 
               <TabsContent value="groups" className="mt-0 space-y-6">
-                <CreateGroup friends={friends} />
-                <GroupsList />
+                <GroupsList friends={friends} />
               </TabsContent>
 
               <TabsContent value="friends" className="mt-0 space-y-6">
