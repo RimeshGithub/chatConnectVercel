@@ -124,7 +124,7 @@ export function FriendsList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 max-sm:px-4">
         <Users className="h-5 w-5 text-muted-foreground" />
         <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">Your Friends <Badge variant="secondary">{friends.length}</Badge></h3>
         <Button onClick={() => {router.push("/");localStorage.setItem("tabActive", "add");}} className="flex items-center ml-auto">
@@ -133,18 +133,18 @@ export function FriendsList() {
       </div>
 
       {friends.length === 0 ? (
-        <Card>
+        <Card className="max-sm:mx-3">
           <CardContent className="p-8 text-center">
             <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
             <p className="text-muted-foreground">No friends yet. Start by adding some!</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid sm:gap-2 md:grid-cols-2">
           {friends.map((friend) => (
-            <Card key={friend.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+            <Card key={friend.id} className="sm:hover:shadow-md transition-shadow max-sm:shadow-none max-sm:rounded-none">
+              <CardContent>
+                <div className="flex items-center sm:justify-between max-sm:flex-col max-sm:items-start">
                   <div className="flex items-center gap-3">
                     <div className="relative">
                       <Avatar className="h-10 w-10">
@@ -166,7 +166,7 @@ export function FriendsList() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 max-sm:ml-auto">
                     <Button size="sm" variant="ghost" onClick={() => handleStartChat(friend.friendId)}>
                       <MessageSquare className="h-4 w-4" />
                     </Button>

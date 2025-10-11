@@ -154,7 +154,7 @@ export function GroupsList({ friends }: { friends: Friend[] }) {
   return (
     <div className="space-y-4">
       {showCreateGroupDialog && <CreateGroup friends={friends} toggleDiaglogBox={toggleDiaglogBox} />}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 max-sm:px-4">
         <Users className="h-5 w-5 text-muted-foreground" />
         <h3 className="text-lg font-semibold text-foreground">My Groups</h3>
         {!showCreateGroupDialog && (
@@ -165,21 +165,21 @@ export function GroupsList({ friends }: { friends: Friend[] }) {
       </div>
 
       {groups.length === 0 ? (
-        <Card>
+        <Card className="max-sm:mx-3">
           <CardContent className="p-8 text-center">
             <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
             <p className="text-muted-foreground">No groups yet. Create one to get started!</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="sm:space-y-2">
           {groups.map((group) => (
             <Card
               key={group.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className="cursor-pointer sm:hover:shadow-md transition-shadow max-sm:shadow-none max-sm:rounded-none"
               onClick={() => handleGroupClick(group.id)}
             >
-              <CardContent className="p-4">
+              <CardContent>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12">
                     <AvatarFallback className="bg-primary text-primary-foreground">
@@ -188,15 +188,15 @@ export function GroupsList({ friends }: { friends: Friend[] }) {
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <p className="font-semibold text-foreground">{group.name} <span className="ml-2 text-muted-foreground text-xs">{`${group.memberCount} members`}</span></p>
+                      <p className="font-semibold text-foreground max-sm:flex max-sm:flex-col">{group.name} <span className="sm:ml-2 text-muted-foreground text-[10px] sm:text-xs">{`${group.memberCount} members`}</span></p>
                       {group.lastMessageTime && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-[10px] sm:text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(group.lastMessageTime), { addSuffix: true })}
                         </span>
                       )}
                     </div>
                     {group.lastMessage ? (
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-2 max-sm:mt-3">
                         <p
                           className={`text-sm truncate ${group.unreadCount > 0 ? "font-semibold text-foreground" : "text-muted-foreground"}`}
                         >
@@ -210,7 +210,7 @@ export function GroupsList({ friends }: { friends: Friend[] }) {
                         )}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground truncate">
+                      <p className="text-sm text-muted-foreground truncate max-sm:mt-3">
                         {group.description || ""}
                       </p>
                     )}

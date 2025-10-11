@@ -219,7 +219,7 @@ export function AddFriend() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="max-sm:mx-4">
         <div className="flex items-center gap-2">
           <UserPlus className="h-5 w-5 text-muted-foreground" />
           <h3 className="text-lg font-semibold text-foreground">Add new Friend</h3>
@@ -229,9 +229,9 @@ export function AddFriend() {
         </p>
       </div>
 
-      <form onSubmit={handleSearch} className="space-y-4">
+      <form onSubmit={handleSearch} className="space-y-4 max-sm:mx-4">
         <div className="space-y-2">
-          <div className="flex gap-2">
+          <div className="flex gap-2 max-sm:flex-col">
             <Input
               type="text"
               placeholder="Search by name or email..."
@@ -255,12 +255,12 @@ export function AddFriend() {
       </form>
 
       {searchResults.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="font-semibold text-lg flex items-center gap-2">Search Results <Badge variant="secondary">{searchResults.length}</Badge></h3>
+        <div className="sm:space-y-2 sm:mx-1">
+          <h3 className="font-semibold text-lg flex items-center gap-2 max-sm:mb-3 max-sm:mx-4">Search Results <Badge variant="secondary">{searchResults.length}</Badge></h3>
           {searchResults.map((result) => (
-            <Card key={result.uid} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+            <Card key={result.uid} className="sm:hover:shadow-md transition-shadow max-sm:shadow-none max-sm:rounded-none">
+              <CardContent>
+                <div className="flex items-center sm:justify-between max-sm:flex-col max-sm:items-start max-sm:gap-3">
                   <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12">
                       <AvatarFallback className="bg-primary text-primary-foreground">
@@ -284,6 +284,7 @@ export function AddFriend() {
                     onClick={() => handleSendRequest(result)} 
                     disabled={loading}
                     size="sm"
+                    className="max-sm:ml-auto"
                   >
                     {loading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

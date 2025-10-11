@@ -92,7 +92,7 @@ export function CreateGroup({ friends, toggleDiaglogBox }: { friends: Friend[], 
   }
 
   return (
-    <Card>
+    <Card className="max-sm:rounded-none max-sm:shadow-none">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Users className="h-5 w-5" />
@@ -136,33 +136,35 @@ export function CreateGroup({ friends, toggleDiaglogBox }: { friends: Friend[], 
               </p>
             </div>
             
-            {friends.length === 0 ? (
-              <p className="text-sm text-muted-foreground">You need friends to create a group.</p>
-            ) : (
-              <div className="max-h-48 overflow-y-auto border rounded-lg p-3 grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                {friends.map((friend) => (
-                  <label
-                    key={friend.friendId}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                  >
-                    <Card className="flex flex-row items-center pl-5 py-1.5 gap-2 rounded-sm hover:shadow-md">
-                      <Checkbox
-                        checked={selectedMembers.includes(friend.friendId)}
-                        onCheckedChange={() => toggleMember(friend.friendId)}
-                      />
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-10 w-10">
-                            <AvatarFallback className="bg-primary text-primary-foreground">
-                              {friend.photoURL ? <img src={friend.photoURL} alt="Profile" /> : friend.friendName?.charAt(0).toUpperCase() || <User />}
-                            </AvatarFallback>
-                          </Avatar>
-                          {friend.friendName}
-                        </div>
-                    </Card>
-                  </label>
-                ))}
-              </div>
-            )}
+            <div className="px-2 py-0.5 border rounded-lg">
+              {friends.length === 0 ? (
+                <p className="text-sm text-muted-foreground">You need friends to create a group.</p>
+              ) : (
+                <div className="max-h-50 overflow-y-auto py-2 grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  {friends.map((friend) => (
+                    <label
+                      key={friend.friendId}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      <Card className="flex flex-row items-center pl-5 py-1.5 gap-2 rounded-sm shadow-none hover:shadow-sm">
+                        <Checkbox
+                          checked={selectedMembers.includes(friend.friendId)}
+                          onCheckedChange={() => toggleMember(friend.friendId)}
+                        />
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-10 w-10">
+                              <AvatarFallback className="bg-primary text-primary-foreground">
+                                {friend.photoURL ? <img src={friend.photoURL} alt="Profile" /> : friend.friendName?.charAt(0).toUpperCase() || <User />}
+                              </AvatarFallback>
+                            </Avatar>
+                            {friend.friendName}
+                          </div>
+                      </Card>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

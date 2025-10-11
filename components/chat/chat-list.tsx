@@ -134,27 +134,27 @@ export function ChatList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 max-sm:px-4">
         <MessageSquare className="h-5 w-5 text-muted-foreground" />
         <h3 className="text-lg font-semibold text-foreground">Recent Chats</h3>
       </div>
 
       {chats.length === 0 ? (
-        <Card>
+        <Card className="max-sm:mx-3">
           <CardContent className="p-8 text-center">
             <MessageSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
             <p className="text-muted-foreground">No chats yet. Start a conversation with your friends!</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="sm:space-y-2">
           {chats.map((chat) => (
             <Card
               key={chat.friendId}
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className="cursor-pointer sm:hover:shadow-md transition-shadow max-sm:shadow-none max-sm:rounded-none"
               onClick={() => handleChatClick(chat.friendId)}
             >
-              <CardContent className="p-4">
+              <CardContent>
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <Avatar className="h-12 w-12">
@@ -171,7 +171,7 @@ export function ChatList() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <p className="font-semibold text-foreground">{chat.friendName}</p>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-[10px] sm:text-xs text-muted-foreground">
                         {chat.lastMessageTime && formatDistanceToNow(new Date(chat.lastMessageTime), { addSuffix: true })}
                       </span>
                     </div>

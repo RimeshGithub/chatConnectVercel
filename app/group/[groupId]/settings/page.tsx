@@ -466,7 +466,7 @@ export default function GroupSettingsPage() {
 
         <div className="space-y-6">
           {/* Group Info */}
-          <Card>
+          <Card className="py-6">
             <CardHeader>
               <CardTitle>Group Information</CardTitle>
               {isAdmin && <CardDescription>Update group name and description</CardDescription>}
@@ -506,24 +506,22 @@ export default function GroupSettingsPage() {
           </Card>
 
           {/* Members */}
-          <Card>
+          <Card className="py-6">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">Members <Badge variant="secondary">{members.length}</Badge></CardTitle>
-                {isAdmin && (
-                  <Button onClick={() => setShowAddMembers(true)} size="sm">
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Add Members
-                  </Button>
-                )}
-              </div>
-              {isAdmin && <CardDescription className="-mt-2">Manage group members and permissions</CardDescription>}
+              <CardTitle className="flex items-center gap-2">Members <Badge variant="secondary">{members.length}</Badge></CardTitle>
+              {isAdmin && <CardDescription className="mt-0">Manage group members and permissions</CardDescription>}
+              {isAdmin && (
+                <Button onClick={() => setShowAddMembers(true)} className="sm:w-[200px] sm:ml-auto">
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add Members
+                </Button>
+              )}
             </CardHeader>
-            <CardContent className="max-h-100 overflow-y-auto">
-              <div className="space-y-2">
+            <CardContent className="max-h-80 overflow-y-auto px-0 mx-5">
+              <div className="space-y-2  overflow-x-hidden">
                 {members.map((member) => 
                   member.displayName && (
-                  <div key={member.userId} className="flex items-center justify-between p-3 rounded-lg border">
+                  <div key={member.userId} className="flex sm:items-center justify-between p-3 rounded-lg border max-sm:flex-col">
                     <div className="flex items-center gap-3">
                       <div className="relative">
                         <Avatar className="h-12 w-12">
@@ -538,19 +536,21 @@ export default function GroupSettingsPage() {
                         />
                       </div>
                       <div>
-                        <p className="font-medium text-foreground flex items-center gap-2 mb-1">
+                        <div className="font-medium text-foreground flex sm:items-center gap-2 sm:mb-1 max-sm:flex-col">
                           {member.displayName || "Unknown User"}
-                          {member.userId === user.uid && <Badge variant="secondary">You</Badge>}
-                          {member.isAdmin && <Badge variant="secondary"><Shield className="h-4 w-4 text-primary" /> Admin</Badge>}
-                          {member.userId === groupInfo.createdBy && <Badge variant="secondary"><Crown className="h-4 w-4 text-yellow-500" /> Owner</Badge>}
-                        </p>
+                          {(member.userId === user.uid || member.userId === groupInfo.createdBy || member.isAdmin ) && <div className="flex gap-1 max-sm:mb-2">
+                            {member.userId === user.uid && <Badge variant="secondary">You</Badge>}
+                            {member.isAdmin && <Badge variant="secondary"><Shield className="h-4 w-4 text-primary" /> Admin</Badge>}
+                            {member.userId === groupInfo.createdBy && <Badge variant="secondary"><Crown className="h-4 w-4 text-yellow-500" /> Owner</Badge>}
+                          </div>}
+                        </div>
                         <p className="text-sm text-muted-foreground">{member.email}</p>
                       </div>
                     </div>
                     {isAdmin && member.userId !== user.uid && (!member.isAdmin || isCreator) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button size="sm">
+                          <Button size="sm" className="mt-2.5">
                             Manage
                           </Button>
                         </DropdownMenuTrigger>
@@ -584,7 +584,7 @@ export default function GroupSettingsPage() {
           </Card>
 
           {/* Danger Zone */}
-          <Card>
+          <Card className="py-6">
             <CardHeader>
               <CardTitle className="text-destructive">Danger Zone</CardTitle>
               <CardDescription>Irreversible actions</CardDescription>
@@ -619,19 +619,19 @@ export default function GroupSettingsPage() {
             <DialogTitle>Add Members</DialogTitle>
             <DialogDescription>Select friends to add to the group</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+          <div className="px-2 py-0.5 border rounded-lg">
             {friends.filter((friend) => !members.some((member) => member.userId === friend.friendId)).length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
                 No friends to add
               </p>
             ) : (
-              <div className="max-h-80 overflow-y-auto border rounded-lg p-3 grid gap-2 grid-cols-1">
+              <div className="max-h-50 py-2 overflow-y-auto grid gap-2 grid-cols-1">
                 {friends.filter((friend) => !members.some((member) => member.userId === friend.friendId)).map((friend) => (
                   <label
                     key={friend.friendId}
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                   >
-                    <Card className="flex flex-row items-center pl-5 py-1.5 gap-2 rounded-sm hover:shadow-md">
+                    <Card className="flex flex-row items-center pl-5 py-1.5 gap-2 rounded-sm shadow-none hover:shadow-sm">
                       <Checkbox
                         checked={selectedFriends.includes(friend.friendId)}
                         onCheckedChange={() =>

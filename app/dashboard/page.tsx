@@ -223,10 +223,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen gradient-bg">
-      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+    <div className="gradient-bg">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 max-sm:p-0 flex flex-col min-h-screen">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between sm:mb-4 max-sm:p-4">
           <div className="flex items-center gap-3">
             <img src="/chat_icon.png" className="h-12 w-12 rounded-xl shadow-lg" alt="Profile" />
             <div>
@@ -264,7 +264,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Main Content */}
-        <div className="bg-card/95 backdrop-blur-sm rounded-xl shadow-xl border border-border/50 overflow-hidden">
+        <div className="bg-card/95 sm:backdrop-blur-sm sm:rounded-xl sm:shadow-xl border border-border/50 flex-1">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full justify-start rounded-xl bg-transparent py-0.5 px-1 md:flex md:gap-1 max-md:p-1 max-md:grid max-md:grid-cols-2 max-md:gap-1 max-md:mb-12">
               <TabsTrigger
@@ -340,7 +340,7 @@ export default function DashboardPage() {
               </TabsTrigger>
             </TabsList>
 
-            <div className="p-6">
+            <div className="sm:p-6 max-sm:py-6">
               <TabsContent value="chats" className="mt-0">
                 <ChatList />
               </TabsContent>
