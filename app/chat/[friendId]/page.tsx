@@ -79,6 +79,25 @@ export default function ChatPage() {
 
   const reactionEmojis = ["👍", "❤️", "😂", "😮", "😢", "😠", "🤬", "🖕", "🙏"]
 
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
+  const [showOptionsMenu, setShowOptionsMenu] = useState<string | null>(null)
+
+  const handleLongPressStart = (e: React.TouchEvent | React.MouseEvent, messageId: string) => {
+    const timer = setTimeout(() => {
+      // After holding for 1 second, open both dropdowns
+      setShowReactionPicker(messageId)
+      setShowOptionsMenu(messageId) // You'll need to add this state
+    }, 1000)
+    setLongPressTimer(timer)
+  }
+
+  const handleLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+    }
+  }
+
   useEffect(() => {
     if (!friendId) return
 
@@ -360,7 +379,15 @@ export default function ChatPage() {
               }
 
               return (
-                <div key={message.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                <div
+                  key={message.id}
+                  className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
+                  onTouchStart={(e) => handleLongPressStart(e, message.id)}
+                  onTouchEnd={handleLongPressEnd}
+                  onMouseDown={(e) => handleLongPressStart(e, message.id)}
+                  onMouseUp={handleLongPressEnd}
+                  onMouseLeave={handleLongPressEnd}
+                >
                   <div className={`max-w-[70%] ${isOwn ? "items-end" : "items-start"} flex flex-col gap-1`}>
                     {isEditing ? (
                       <div className="w-full bg-card border border-border rounded-2xl p-3">
@@ -403,7 +430,7 @@ export default function ChatPage() {
 
                         {!message.deleted && (
                           <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <DropdownMenu>
+                            <DropdownMenu open={showOptionsMenu === message.id} onOpenChange={(open) => setShowOptionsMenu(open ? message.id : null)}>
                               <DropdownMenuTrigger asChild>
                                 <Button size="icon" variant="secondary" className="h-6 w-6 rounded-full">
                                   <MoreVertical className="h-3 w-3" />
