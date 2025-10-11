@@ -238,14 +238,14 @@ export function AddFriend() {
               value={searchData}
               onChange={(e) => setSearchData(e.target.value)}
               disabled={loading}
-              className="flex-1"
+              className="flex-1 max-sm:mb-1"
             />
             <Button type="submit" disabled={loading || !searchData.trim()}>
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <Search className="h-4 w-4 mr-2" />
+                  <Search className="h-4 w-4 mr-0.5" />
                   Search
                 </>
               )}

@@ -97,7 +97,7 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
   }
 
   return (
-    <Card className="w-full max-w-md border-border/50 shadow-xl backdrop-blur-sm bg-card/95">
+    <Card className="w-full max-w-md border-border/50 shadow-xl backdrop-blur-sm bg-card/95 py-6">
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
         <CardDescription className="text-center">Enter your details to get started</CardDescription>
@@ -110,6 +110,7 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
               id="name"
               type="text"
               value={name}
+              placeholder="Enter your name"
               onChange={(e) => setName(e.target.value)}
               required
               disabled={loading || googleLoading}
@@ -121,6 +122,7 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
               id="email"
               type="email"
               value={email}
+              placeholder="Enter your email"
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={loading || googleLoading}
@@ -132,6 +134,7 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
               id="password"
               type="password"
               value={password}
+              placeholder="Enter your password"
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={loading || googleLoading}

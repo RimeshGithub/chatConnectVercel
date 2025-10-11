@@ -74,6 +74,24 @@ export default function GroupChatPage() {
 
   const reactionEmojis = ["👍", "❤️", "😂", "😮", "😢", "😠", "🤬", "🖕", "🙏"]
 
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
+  const [showOptionsMenu, setShowOptionsMenu] = useState<string | null>(null)
+
+  const handleLongPressStart = (e: React.TouchEvent | React.MouseEvent, messageId: string) => {
+    const timer = setTimeout(() => {
+      // After holding for 1 second, open both dropdowns
+      setShowOptionsMenu(messageId)
+    }, 1000)
+    setLongPressTimer(timer)
+  }
+
+  const handleLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+    }
+  }
+
   useEffect(() => {
     if (!groupId || !user) return
 
@@ -235,6 +253,7 @@ export default function GroupChatPage() {
 
       await updateDoc(messageRef, { reactions })
       setShowReactionPicker(null)
+      setShowOptionsMenu(null)
     } catch (error: any) {
       toast({
         title: "Failed to add reaction",
@@ -363,7 +382,15 @@ export default function GroupChatPage() {
               }
 
               return (
-                <div key={message.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                <div
+                  key={message.id}
+                  className={`flex ${isOwn ? "justify-end" : "justify-start"} select-none`}
+                  onTouchStart={(e) => handleLongPressStart(e, message.id)}
+                  onTouchEnd={handleLongPressEnd}
+                  onMouseDown={(e) => handleLongPressStart(e, message.id)}
+                  onMouseUp={handleLongPressEnd}
+                  onMouseLeave={handleLongPressEnd}
+                >
                   <div className={`max-w-[70%] ${isOwn ? "items-end" : "items-start"} flex flex-col gap-1`}>
                     {!isOwn && (
                       <span className="text-xs font-medium text-muted-foreground ml-8">
@@ -427,7 +454,7 @@ export default function GroupChatPage() {
                           {!message.deleted && (
                             <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
+                                <DropdownMenuTrigger asChild className="max-sm:invisible">
                                   <Button size="icon" variant="secondary" className="h-6 w-6 rounded-full">
                                     <MoreVertical className="h-3 w-3" />
                                   </Button>
@@ -466,7 +493,7 @@ export default function GroupChatPage() {
                                 open={showReactionPicker === message.id}
                                 onOpenChange={(open) => setShowReactionPicker(open ? message.id : null)}
                               >
-                                <DropdownMenuTrigger asChild>
+                                <DropdownMenuTrigger asChild className="max-sm:invisible">
                                   <Button size="icon" variant="secondary" className="h-6 w-6 rounded-full">
                                     <Smile className="h-3 w-3" />
                                   </Button>
@@ -484,6 +511,60 @@ export default function GroupChatPage() {
                                         {emoji}
                                       </Button>
                                     ))}
+                                  </div>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          )}
+
+                          {!message.deleted && (
+                            <div className="absolute -bottom-2 -left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <DropdownMenu
+                                open={showOptionsMenu === message.id}
+                                onOpenChange={(open) => setShowOptionsMenu(open ? message.id : null)}
+                              >
+                                <DropdownMenuTrigger asChild className="invisible">
+                                  <Button size="icon" variant="secondary" className="h-6 w-6 rounded-full">
+                                    <MoreVertical />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <div className="flex gap-1 p-1">
+                                    {reactionEmojis.map((emoji) => (
+                                      <Button
+                                        key={emoji}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-lg hover:scale-125 transition-transform"
+                                        onClick={() => handleReaction(message.id, emoji)}
+                                      >
+                                        {emoji}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                  <div className="flex gap-0.5">
+                                    {isOwn && (
+                                      <DropdownMenuItem onClick={() => startEdit(message)} className="group flex-1 flex justify-center">
+                                        <Pencil className="h-4 w-4 mr-0.5 group-hover:text-white" />
+                                        Edit
+                                      </DropdownMenuItem>                                
+                                    )}
+                                    <DropdownMenuItem onClick={() => copyMessage(message)} className="group flex-1 flex justify-center">
+                                      <Copy className="h-4 w-4 mr-0.5 group-hover:text-white" />
+                                      Copy
+                                    </DropdownMenuItem>
+                                    {isOwn && (
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          setMessageToDelete(message.id)
+                                          setDeleteDialogOpen(true)
+                                        }}
+                                        className="group text-destructive flex-1 flex justify-center"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-0.5 text-red-500 group-hover:text-white" />
+                                        Delete
+                                      </DropdownMenuItem>    
+                                    )}
                                   </div>
                                 </DropdownMenuContent>
                               </DropdownMenu>

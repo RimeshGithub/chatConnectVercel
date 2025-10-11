@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
-import { Check, X, Loader2, User } from "lucide-react"
+import { Check, X, Loader2, User, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 interface FriendRequest {
@@ -114,16 +114,17 @@ export function FriendRequests() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 max-sm:px-4">
+        <Users className="h-5 w-5 text-muted-foreground" />
         <h3 className="text-lg font-semibold text-foreground">Friend Requests</h3>
         <Badge variant="secondary">{requests.length}</Badge>
       </div>
 
-      <div className="space-y-3">
+      <div className="sm:space-y-2">
         {requests.map((request) => (
-          <Card key={request.id}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
+          <Card key={request.id} className="sm:hover:shadow-md transition-shadow max-sm:shadow-none max-sm:rounded-none">
+            <CardContent>
+              <div className="flex items-center sm:justify-between max-sm:flex-col max-sm:items-start">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
                     <AvatarFallback className="bg-primary text-primary-foreground">
@@ -135,7 +136,7 @@ export function FriendRequests() {
                     <p className="text-sm text-muted-foreground">{request.fromUserEmail}</p>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 max-sm:ml-auto">
                   <Button size="sm" onClick={() => handleAccept(request)} disabled={loading === request.id}>
                     {loading === request.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

@@ -519,14 +519,14 @@ export default function ChatPage() {
                                     </Button>
                                   ))}
                                 </div>
-                                <div className="flex justify-evenly">
+                                <div className="flex gap-0.5">
                                   {isOwn && (
-                                    <DropdownMenuItem onClick={() => startEdit(message)} className="group px-5">
+                                    <DropdownMenuItem onClick={() => startEdit(message)} className="group flex-1 flex justify-center">
                                       <Pencil className="h-4 w-4 mr-0.5 group-hover:text-white" />
                                       Edit
                                     </DropdownMenuItem>                                
                                   )}
-                                  <DropdownMenuItem onClick={() => copyMessage(message)} className="group px-5">
+                                  <DropdownMenuItem onClick={() => copyMessage(message)} className="group flex-1 flex justify-center">
                                     <Copy className="h-4 w-4 mr-0.5 group-hover:text-white" />
                                     Copy
                                   </DropdownMenuItem>
@@ -536,7 +536,7 @@ export default function ChatPage() {
                                         setMessageToDelete(message.id)
                                         setDeleteDialogOpen(true)
                                       }}
-                                      className="group text-destructive px-5"
+                                      className="group text-destructive flex-1 flex justify-center"
                                     >
                                       <Trash2 className="h-4 w-4 mr-0.5 text-red-500 group-hover:text-white" />
                                       Delete

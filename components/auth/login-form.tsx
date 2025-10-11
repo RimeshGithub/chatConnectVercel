@@ -83,7 +83,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
   }
 
   return (
-    <Card className="w-full max-w-md border-border/50 shadow-xl backdrop-blur-sm bg-card/95">
+    <Card className="w-full max-w-md border-border/50 shadow-xl backdrop-blur-sm bg-card/95 py-6">
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl font-bold text-center">Welcome back!</CardTitle>
         <CardDescription className="text-center">Enter your credentials to access your account</CardDescription>
@@ -96,6 +96,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
               id="email"
               type="email"
               value={email}
+              placeholder="Enter your email"
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={loading || googleLoading}
@@ -107,6 +108,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
               id="password"
               type="password"
               value={password}
+              placeholder="Enter your password"
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={loading || googleLoading}
