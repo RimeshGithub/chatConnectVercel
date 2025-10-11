@@ -79,9 +79,9 @@ export default function GroupChatPage() {
 
   const handleLongPressStart = (e: React.TouchEvent | React.MouseEvent, messageId: string) => {
     const timer = setTimeout(() => {
-      // After holding for 1 second, open both dropdowns
+      // After holding for 0.8 seconds, open dropdowns
       setShowOptionsMenu(messageId)
-    }, 1000)
+    }, 800)
     setLongPressTimer(timer)
   }
 
@@ -221,6 +221,7 @@ export default function GroupChatPage() {
       })
 
       setNewMessage("")
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
     } catch (error: any) {
       toast({
         title: "Failed to send message",
