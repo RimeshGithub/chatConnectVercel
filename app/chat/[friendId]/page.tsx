@@ -177,7 +177,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+  }, [friendInfo])
 
   const handleTyping = async () => {
     if (!chatId || !user) return

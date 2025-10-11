@@ -202,7 +202,7 @@ export default function GroupChatPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+  }, [groupInfo])
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
