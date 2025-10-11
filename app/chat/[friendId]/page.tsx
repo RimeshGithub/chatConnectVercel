@@ -85,8 +85,7 @@ export default function ChatPage() {
   const handleLongPressStart = (e: React.TouchEvent | React.MouseEvent, messageId: string) => {
     const timer = setTimeout(() => {
       // After holding for 1 second, open both dropdowns
-      setShowReactionPicker(messageId)
-      setShowOptionsMenu(messageId) // You'll need to add this state
+      setShowOptionsMenu(messageId)
     }, 1000)
     setLongPressTimer(timer)
   }
@@ -250,6 +249,7 @@ export default function ChatPage() {
 
       await updateDoc(messageRef, { reactions })
       setShowReactionPicker(null)
+      setShowOptionsMenu(null)
     } catch (error: any) {
       toast({
         title: "Failed to add reaction",
@@ -381,7 +381,7 @@ export default function ChatPage() {
               return (
                 <div
                   key={message.id}
-                  className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
+                  className={`flex ${isOwn ? "justify-end" : "justify-start"} select-none`}
                   onTouchStart={(e) => handleLongPressStart(e, message.id)}
                   onTouchEnd={handleLongPressEnd}
                   onMouseDown={(e) => handleLongPressStart(e, message.id)}
@@ -430,8 +430,8 @@ export default function ChatPage() {
 
                         {!message.deleted && (
                           <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <DropdownMenu open={showOptionsMenu === message.id} onOpenChange={(open) => setShowOptionsMenu(open ? message.id : null)}>
-                              <DropdownMenuTrigger asChild>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild className="max-sm:invisible">
                                 <Button size="icon" variant="secondary" className="h-6 w-6 rounded-full">
                                   <MoreVertical className="h-3 w-3" />
                                 </Button>
@@ -470,7 +470,7 @@ export default function ChatPage() {
                               open={showReactionPicker === message.id}
                               onOpenChange={(open) => setShowReactionPicker(open ? message.id : null)}
                             >
-                              <DropdownMenuTrigger asChild>
+                              <DropdownMenuTrigger asChild className="max-sm:invisible">
                                 <Button size="icon" variant="secondary" className="h-6 w-6 rounded-full">
                                   <Smile className="h-3 w-3" />
                                 </Button>
@@ -488,6 +488,60 @@ export default function ChatPage() {
                                       {emoji}
                                     </Button>
                                   ))}
+                                </div>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        )}
+
+                        {!message.deleted && (
+                          <div className="absolute -bottom-2 -left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <DropdownMenu
+                              open={showOptionsMenu === message.id}
+                              onOpenChange={(open) => setShowOptionsMenu(open ? message.id : null)}
+                            >
+                              <DropdownMenuTrigger asChild className="invisible">
+                                <Button size="icon" variant="secondary" className="h-6 w-6 rounded-full">
+                                  <MoreVertical />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent>
+                                <div className="flex gap-1 p-1">
+                                  {reactionEmojis.map((emoji) => (
+                                    <Button
+                                      key={emoji}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-lg hover:scale-125 transition-transform"
+                                      onClick={() => handleReaction(message.id, emoji)}
+                                    >
+                                      {emoji}
+                                    </Button>
+                                  ))}
+                                </div>
+                                <div className="flex justify-evenly">
+                                  {isOwn && (
+                                    <DropdownMenuItem onClick={() => startEdit(message)} className="group px-5">
+                                      <Pencil className="h-4 w-4 mr-0.5 group-hover:text-white" />
+                                      Edit
+                                    </DropdownMenuItem>                                
+                                  )}
+                                  <DropdownMenuItem onClick={() => copyMessage(message)} className="group px-5">
+                                    <Copy className="h-4 w-4 mr-0.5 group-hover:text-white" />
+                                    Copy
+                                  </DropdownMenuItem>
+                                  {isOwn && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setMessageToDelete(message.id)
+                                        setDeleteDialogOpen(true)
+                                      }}
+                                      className="group text-destructive px-5"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-0.5 text-red-500 group-hover:text-white" />
+                                      Delete
+                                    </DropdownMenuItem>    
+                                  )}
                                 </div>
                               </DropdownMenuContent>
                             </DropdownMenu>
